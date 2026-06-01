@@ -1,6 +1,6 @@
 # 🔐 SÉCURISATION DU COMPTE DE STOCKAGE AZURE-Projet AZ-104
 
-> **Auteur :** Serge TOGNON | Admin Cloud Azure Certifié | [LinkedIn](https://www.linkedin.com/in/serge-tognon)
+> **Auteur :** Serge TOGNON | Admin Cloud Azure Certifié | [LinkedIn](https://www.linkedin.com/in/serge-tognon-a63443187/?lipi=urn%3Ali%3Apage%3Ad_flagship3_profile_view_base_contact_details%3BiHxYnwbJRjOOflTaGqZasw%3D%3D )
 
 ![Azure](https://img.shields.io/badge/Azure-Storage-0078D4?style=for-the-badge&logo=microsoftazure&logoColor=white)
 ![AZ-104](https://img.shields.io/badge/Certif-AZ--104-0078D4?style=for-the-badge&logo=microsoft&logoColor=white)
@@ -1237,7 +1237,7 @@ az group show --name rg-storage-security 2>&1 | grep -q "not found" && \
 
 Administrateur Cloud Azure Certifié | Candidat RHCSA | Cotonou, Bénin
 
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Serge_TOGNON-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/serge-tognon)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Serge_TOGNON-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)]( https://www.linkedin.com/in/serge-tognon-a63443187/?lipi=urn%3Ali%3Apage%3Ad_flagship3_profile_view_base_contact_details%3BiHxYnwbJRjOOflTaGqZasw%3D%3D)
 [![AZ-104](https://img.shields.io/badge/Microsoft-AZ--104_Certified-0078D4?style=for-the-badge&logo=microsoft&logoColor=white)](https://learn.microsoft.com/certifications/azure-administrator/)
 [![RHCSA](https://img.shields.io/badge/Red_Hat-RHCSA_Candidat-EE0000?style=for-the-badge&logo=redhat&logoColor=white)](https://www.redhat.com/en/services/certification/rhcsa)
 
