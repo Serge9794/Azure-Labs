@@ -8,7 +8,7 @@
 
 **Auteur : Serge TOGNON — AZ-104 Certified | Préparation RHCSA**
 
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Serge%20TOGNON-0077B5?style=flat&logo=linkedin)](https://linkedin.com)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Serge%20TOGNON-0077B5?style=flat&logo=linkedin)](https://www.linkedin.com/in/serge-tognon-a63443187/?lipi=urn%3Ali%3Apage%3Ad_flagship3_profile_view_base_contact_details%3BiHxYnwbJRjOOflTaGqZasw%3D%3D )
 ![Status](https://img.shields.io/badge/Status-En%20cours-orange?style=flat)
 ![Level](https://img.shields.io/badge/Niveau-Junior%20Cloud%2FDevOps-blue?style=flat)
 
@@ -119,7 +119,7 @@ Marque_Serge/
 
 **Serge TOGNON** · AZ-104 Certified · Préparation RHCSA · 2025
 
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Serge%20TOGNON-0077B5?style=flat&logo=linkedin)](https://linkedin.com)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Serge%20TOGNON-0077B5?style=flat&logo=linkedin)]( https://www.linkedin.com/in/serge-tognon-a63443187/?lipi=urn%3Ali%3Apage%3Ad_flagship3_profile_view_base_contact_details%3BiHxYnwbJRjOOflTaGqZasw%3D%3D)
 
 
 
