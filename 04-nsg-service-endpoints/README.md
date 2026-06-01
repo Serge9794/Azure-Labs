@@ -1,7 +1,7 @@
 # 🛡️ Azure NSG & Service Endpoints — Sécurité Réseau ERP
 
 > **Auteur :** Serge TOGNON | Administrateur Cloud Azure Certifié (AZ-104) | Candidat RHCSA
-> [![LinkedIn](https://img.shields.io/badge/LinkedIn-Serge_TOGNON-0077B5?logo=linkedin)](https://www.linkedin.com/in/serge-tognon)
+> [![LinkedIn](https://img.shields.io/badge/LinkedIn-Serge_TOGNON-0077B5?logo=linkedin)](https://www.linkedin.com/in/serge-tognon-a63443187/?lipi=urn%3Ali%3Apage%3Ad_flagship3_profile_view_base_contact_details%3BiHxYnwbJRjOOflTaGqZasw%3D%3D  )
 > [![Azure](https://img.shields.io/badge/Azure-AZ--104_Certified-0078D4?logo=microsoftazure)](https://learn.microsoft.com/certifications/azure-administrator/)
 
 ---
@@ -732,5 +732,5 @@ azure-nsg-service-endpoints/
 ---
 
 *Réalisé par **Serge TOGNON** — Administrateur Cloud Azure Certifié (AZ-104) | Candidat RHCSA*
-*LinkedIn : [Serge TOGNON](https://www.linkedin.com/in/serge-tognon)*
+*LinkedIn : [Serge TOGNON]( https://www.linkedin.com/in/serge-tognon-a63443187/?lipi=urn%3Ali%3Apage%3Ad_flagship3_profile_view_base_contact_details%3BiHxYnwbJRjOOflTaGqZasw%3D%3D )*
 
