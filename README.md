@@ -1,7 +1,7 @@
 # ☁️ Azure Labs — Serge TOGNON
 
 > **Administrateur Cloud Azure Certifié (AZ-104) | Candidat RHCSA**
-> [![LinkedIn](https://img.shields.io/badge/LinkedIn-Serge_TOGNON-0077B5?logo=linkedin&logoColor=white)](https://www.linkedin.com/in/serge-tognon)
+> [![LinkedIn](https://img.shields.io/badge/LinkedIn-Serge_TOGNON-0077B5?logo=linkedin&logoColor=white)](https://www.linkedin.com/in/serge-tognon-a63443187/?lipi=urn%3Ali%3Apage%3Ad_flagship3_profile_view_base_contact_details%3B7CLzfaXNRPSgO1MAAoxJ1w%3D%3D)
 > [![AZ-104](https://img.shields.io/badge/Microsoft-AZ--104_Certified-0078D4?logo=microsoftazure&logoColor=white)](https://learn.microsoft.com/certifications/azure-administrator/)
 
 ---
