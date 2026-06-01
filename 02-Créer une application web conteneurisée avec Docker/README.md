@@ -1,6 +1,6 @@
 # 🚀 Création et Déploiement d'une Application Web Conteneurisée avec Docker et Azure
 
-**Auteur :** Serge TOGNON — [Mon profil LinkedIn](https://www.linkedin.com/)  
+**Auteur :** Serge TOGNON — [Mon profil LinkedIn]( https://www.linkedin.com/in/serge-tognon-a63443187/?lipi=urn%3Ali%3Apage%3Ad_flagship3_profile_view_base_contact_details%3BiHxYnwbJRjOOflTaGqZasw%3D%3D)  
 **Technologies :** WSL 2 · Docker Desktop · Git · .NET Core · Azure Container Registry (ACR) · Azure Container Instances (ACI)
 
 ---
@@ -313,3 +313,4 @@ ProblèmeCause racineSolutiondotnet restore — SSL failureImage SDK .NET 2.2 ob
 Bonne pratique à retenir : Lorsqu'un docker build échoue sur une commande réseau (restore, apt-get, npm install…), la première piste à investiguer est la configuration DNS du daemon Docker — avant même de remettre en cause le Dockerfile lui-même. Un simple ajout de 8.8.8.8 dans daemon.json peut débloquer la situation en quelques secondes.
 
 
+[LINKEDLN](https://www.linkedin.com/in/serge-tognon-a63443187/?lipi=urn%3Ali%3Apage%3Ad_flagship3_profile_view_base_contact_details%3BiHxYnwbJRjOOflTaGqZasw%3D%3D)
