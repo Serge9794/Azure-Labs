@@ -39,4 +39,4 @@ L'objectif est d'approfondir les compétences Azure au-delà de la certification
 
 **Serge TOGNON**  
 Administrateur Cloud Azure Certifié (AZ-104) | Candidat RHCSA  
-[LinkedIn](https://www.linkedin.com/in/Serge-TOGNON)
+[LinkedIn](https://www.linkedin.com/in/serge-tognon-a63443187/?lipi=urn%3Ali%3Apage%3Ad_flagship3_profile_view_base_contact_details%3BeMO%2Fkd9kTkac1%2Fp0MvE41A%3D%3D)
