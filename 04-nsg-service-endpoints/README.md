@@ -120,16 +120,10 @@ az network vnet subnet list \
     --vnet-name ERP-servers \
     --output table
 ```
+<img width="953" height="150" alt="A" src="https://github.com/user-attachments/assets/076a9af7-d5a9-4b4d-95fb-de6a2dbaf341" />
+<img width="914" height="413" alt="A1" src="https://github.com/user-attachments/assets/2f970b31-26ad-4354-9951-c7477fb7c9d9" />
 
-### 📸 Captures d'écran à faire
-
-> **Capture 1a** — `screenshots/01a_vnet_created.png`
-> - **Chemin :** Portail Azure → **Réseaux virtuels → ERP-servers → Vue d'ensemble**
-> - **Quoi capturer :** Le VNet créé avec son espace d'adressage `10.0.0.0/16` visible
-
-> **Capture 1b** — `screenshots/01b_subnets_list.png`
-> - **Chemin :** Portail Azure → **Réseaux virtuels → ERP-servers → Sous-réseaux**
-> - **Quoi capturer :** Les deux sous-réseaux listés : `Applications (10.0.0.0/24)` et `Databases (10.0.1.0/24)`
+<img width="935" height="393" alt="A2" src="https://github.com/user-attachments/assets/bc8b1bb8-5652-47e7-b63b-ce11b551eee4" />
 
 ---
 
