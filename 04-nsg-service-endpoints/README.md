@@ -93,7 +93,7 @@ rg="rg-nsg-erp-lab"
 # Créer le groupe de ressources (si besoin)
 az group create \
   --name $rg \
-  --location francecentral
+  --location WestUS
 
 # Créer le VNet + sous-réseau Applications
 az network vnet create \
@@ -113,18 +113,17 @@ az network vnet subnet create \
 
 ### Vérification
 
-```bash
+''bash
 # Lister les sous-réseaux créés
 az network vnet subnet list \
     --resource-group $rg \
     --vnet-name ERP-servers \
     --output table
-```
-<img width="953" height="150" alt="A" src="https://github.com/user-attachments/assets/076a9af7-d5a9-4b4d-95fb-de6a2dbaf341" />
-<img width="914" height="413" alt="A1" src="https://github.com/user-attachments/assets/2f970b31-26ad-4354-9951-c7477fb7c9d9" />
 
-<img width="935" height="393" alt="A2" src="https://github.com/user-attachments/assets/bc8b1bb8-5652-47e7-b63b-ce11b551eee4" />
-
+-
+<img width="960" height="265" alt="A1" src="https://github.com/user-attachments/assets/7824e615-1411-4104-b7bd-4a727340560b" />
+<img width="916" height="293" alt="A2" src="https://github.com/user-attachments/assets/1cee7b5c-3791-488d-92d4-7870508c80aa" />
+<img width="917" height="325" alt="A3" src="https://github.com/user-attachments/assets/4e18c979-c793-49d6-b04f-c840df8f5cbc" />
 ---
 
 ## 🖥️ Étape 2 — Création du NSG et des VMs
@@ -151,9 +150,9 @@ az vm create \
     --subnet Applications \
     --nsg ERP-SERVERS-NSG \
     --image Ubuntu2204 \
-    --size Standard_DS1_v2 \
+    --size Standard_D2S_v3 \
     --generate-ssh-keys \
-    --admin-username azureuser \
+    --admin-username polo \
     --custom-data cloud-init.yml \
     --no-wait \
     --admin-password "<VotreMotDePasseComplexe>"
@@ -166,9 +165,9 @@ az vm create \
     --subnet Databases \
     --nsg ERP-SERVERS-NSG \
     --image Ubuntu2204 \
-    --size Standard_DS1_v2 \
+    --size Standard_D2S_v3 \
     --generate-ssh-keys \
-    --admin-username azureuser \
+    --admin-username serge \
     --custom-data cloud-init.yml \
     --no-wait \
     --admin-password "<VotreMotDePasseComplexe>"
@@ -189,20 +188,10 @@ Name        Provisioned    Power
 AppServer   Succeeded      VM running
 DataServer  Succeeded      VM running
 ```
+<img width="891" height="371" alt="B0" src="https://github.com/user-attachments/assets/ef1049a9-4773-4154-a095-d14bac0920a7" />
+<img width="960" height="230" alt="B1" src="https://github.com/user-attachments/assets/4b4b67ce-363c-467b-a056-45b4914cd802" />
 
-### 📸 Captures d'écran à faire
-
-> **Capture 2a** — `screenshots/02a_nsg_created.png`
-> - **Chemin :** Portail Azure → **Groupes de sécurité réseau → ERP-SERVERS-NSG → Vue d'ensemble**
-> - **Quoi capturer :** Le NSG créé avec ses règles par défaut visibles dans les panneaux "Règles de sécurité entrantes" et "Règles de sécurité sortantes"
-
-> **Capture 2b** — `screenshots/02b_vms_running.png`
-> - **Chemin :** Portail Azure → **Machines virtuelles** (vue liste)
-> - **Quoi capturer :** AppServer et DataServer avec le statut **"En cours d'exécution"** (vert)
-
-> **Capture 2c** — `screenshots/02c_nsg_default_rules.png`
-> - **Chemin :** Portail Azure → **NSG ERP-SERVERS-NSG → Règles de sécurité entrantes**
-> - **Quoi capturer :** Les 3 règles par défaut : AllowVnetInBound (65000), AllowAzureLoadBalancerInBound (65001), **DenyAllInBound (65500)**
+<img width="911" height="414" alt="B2" src="https://github.com/user-attachments/assets/f619484e-5bca-4202-b33f-b395a0db814d" />
 
 ---
 
@@ -235,10 +224,10 @@ DATASERVERIP="$(az vm list-ip-addresses \
                  --output tsv)"
 
 # Tester la connexion SSH vers AppServer → doit échouer
-ssh azureuser@$APPSERVERIP -o ConnectTimeout=5
+ssh polo@$APPSERVERIP -o ConnectTimeout=5
 
 # Tester la connexion SSH vers DataServer → doit échouer
-ssh azureuser@$DATASERVERIP -o ConnectTimeout=5
+ssh serge@$DATASERVERIP -o ConnectTimeout=5
 ```
 
 ### Résultat attendu
@@ -249,11 +238,7 @@ ssh: connect to host X.X.X.X port 22: Connection timed out
 
 > ✅ **Comportement normal :** La règle `DenyAllInBound (65500)` bloque tout trafic entrant depuis Internet, y compris SSH. C'est la posture de sécurité par défaut d'Azure.
 
-### 📸 Captures d'écran à faire
-
-> **Capture 3a** — `screenshots/03a_ssh_blocked_default.png`
-> - **Chemin :** Azure Cloud Shell (terminal)
-> - **Quoi capturer :** Le message **"Connection timed out"** dans le terminal Cloud Shell lors de la tentative SSH vers AppServer
+<img width="960" height="239" alt="C0" src="https://github.com/user-attachments/assets/babe7d1b-15df-4240-9f2c-b189c1705a6f" />
 
 ---
 
@@ -281,11 +266,11 @@ az network nsg rule create \
     --description "Allow inbound SSH"
 
 # Tester SSH vers AppServer (attendre 1-2 min si nécessaire)
-ssh azureuser@$APPSERVERIP -o ConnectTimeout=5
+ssh polo@$APPSERVERIP -o ConnectTimeout=5
 # → Taper "yes" puis le mot de passe → puis "exit"
 
 # Tester SSH vers DataServer
-ssh azureuser@$DATASERVERIP -o ConnectTimeout=5
+ssh serge@$DATASERVERIP -o ConnectTimeout=5
 # → Taper "yes" puis le mot de passe → puis "exit"
 ```
 
@@ -294,18 +279,12 @@ ssh azureuser@$DATASERVERIP -o ConnectTimeout=5
 ```
 The authenticity of host 'X.X.X.X' can't be established.
 Are you sure you want to continue connecting (yes/no)? yes
-azureuser@AppServer:~$
+serge@AppServer:~$
 ```
-
-### 📸 Captures d'écran à faire
-
-> **Capture 4a** — `screenshots/04a_ssh_rule_created.png`
-> - **Chemin :** Portail Azure → **NSG ERP-SERVERS-NSG → Règles de sécurité entrantes**
-> - **Quoi capturer :** La règle **AllowSSHRule** visible en priorité 100, avec la colonne Action = "Autoriser" (icône verte)
-
-> **Capture 4b** — `screenshots/04b_ssh_connected.png`
-> - **Chemin :** Azure Cloud Shell (terminal)
-> - **Quoi capturer :** La connexion SSH réussie vers AppServer avec le prompt `azureuser@AppServer:~$`
+<img width="916" height="407" alt="C1" src="https://github.com/user-attachments/assets/eaa4f382-800c-4ac3-a4da-4d2227b83b82" />
+<img width="930" height="118" alt="C2" src="https://github.com/user-attachments/assets/f7d0170a-8f8e-477f-a8e4-c1cf7a5d0c40" />
+<img width="953" height="394" alt="C3" src="https://github.com/user-attachments/assets/b7207265-77ee-4a68-899b-fa756d16db60" />
+<img width="960" height="114" alt="C4" src="https://github.com/user-attachments/assets/df22edfe-62c4-4347-821c-6cd70d5d0978" />
 
 ---
 
@@ -342,10 +321,10 @@ az network nsg rule create \
     --description "Deny from DataServer to AppServer on port 80"
 
 # TEST 1 : AppServer → DataServer via HTTP (doit fonctionner → HTTP 200 OK)
-ssh -t azureuser@$APPSERVERIP 'wget http://10.0.1.4; exit; bash'
+ssh -t polo@$APPSERVERIP 'wget http://10.0.1.4; exit; bash'
 
 # TEST 2 : DataServer → AppServer via HTTP (doit échouer → Connection timed out)
-ssh -t azureuser@$DATASERVERIP 'wget http://10.0.0.4; exit; bash'
+ssh -t serge@$DATASERVERIP 'wget http://10.0.0.4; exit; bash'
 # Ctrl+C pour interrompre après quelques secondes
 ```
 
@@ -358,27 +337,15 @@ HTTP request sent, awaiting response... 200 OK
 # TEST 2 (DataServer → AppServer) : ÉCHEC
 Connecting to 10.0.0.4:80... Connection timed out.
 ```
+<img width="926" height="416" alt="D" src="https://github.com/user-attachments/assets/73526580-d504-434d-81a9-50bde204b6c1" />
+<img width="960" height="241" alt="D0" src="https://github.com/user-attachments/assets/995e096d-b58f-42d6-9b44-4f90a6c48646" />
+<img width="960" height="119" alt="D1" src="https://github.com/user-attachments/assets/1f742d45-fe65-4369-86fe-d75dcfde9e98" />
 
-### 📸 Captures d'écran à faire
-
-> **Capture 5a** — `screenshots/05a_http_rule_created.png`
-> - **Chemin :** Portail Azure → **NSG ERP-SERVERS-NSG → Règles de sécurité entrantes**
-> - **Quoi capturer :** Les deux règles visibles : AllowSSHRule (100) et **httpRule (150)** avec Action = "Refuser" (icône rouge)
-
-> **Capture 5b** — `screenshots/05b_appserver_to_dataserver_ok.png`
-> - **Chemin :** Azure Cloud Shell (terminal)
-> - **Quoi capturer :** La commande `wget http://10.0.1.4` depuis AppServer avec la réponse **"200 OK"** visible
-
-> **Capture 5c** — `screenshots/05c_dataserver_to_appserver_blocked.png`
-> - **Chemin :** Azure Cloud Shell (terminal)
-> - **Quoi capturer :** La commande `wget http://10.0.0.4` depuis DataServer avec le message **"Connection timed out"**
-
----
 
 ## 👥 Étape 6 — Application Security Group (ASG)
 
 ### Objectif
-Remplacer l'adresse IP source `10.0.1.4` dans la règle NSG par un **ASG** nommé `ERP-DB-SERVERS-ASG`. Ainsi, tous les futurs serveurs de base de données ajoutés à cet ASG hériteront automatiquement de la règle de blocage — sans modifier le NSG.
+Remplacer l'adresse IP source `10.0.1.4` dans la règle NSG par un **ASG** nommé `ERP-DB-SERVERS-ASG`. Ainsi, tous les futurs serveurs de base de données ajoutés à cet ASG hériteront automatiquement de la règle de blocage sans modifier le NSG.
 
 ### Pourquoi c'est mieux que l'IP ?
 
@@ -422,25 +389,15 @@ az network nsg rule update \
 
 # Retester (attendre 1-2 min pour propagation)
 # TEST 1 : AppServer → DataServer (doit encore fonctionner)
-ssh -t azureuser@$APPSERVERIP 'wget http://10.0.1.4; exit; bash'
+ssh -t polo@$APPSERVERIP 'wget http://10.0.1.4; exit; bash'
 
 # TEST 2 : DataServer → AppServer (doit encore être bloqué)
-ssh -t azureuser@$DATASERVERIP 'wget http://10.0.0.4; exit; bash'
+ssh -t serge@$DATASERVERIP 'wget http://10.0.0.4; exit; bash'
 ```
+<img width="929" height="431" alt="E0" src="https://github.com/user-attachments/assets/3438176f-77ad-4fbc-b7f6-2bea19ce5163" />
 
-### 📸 Captures d'écran à faire
-
-> **Capture 6a** — `screenshots/06a_asg_created.png`
-> - **Chemin :** Portail Azure → **Groupes de sécurité d'application → ERP-DB-SERVERS-ASG → Vue d'ensemble**
-> - **Quoi capturer :** L'ASG créé avec DataServer visible dans les interfaces réseau associées
-
-> **Capture 6b** — `screenshots/06b_nsg_rule_with_asg.png`
-> - **Chemin :** Portail Azure → **NSG ERP-SERVERS-NSG → Règles de sécurité entrantes → httpRule (détail)**
-> - **Quoi capturer :** Le détail de la règle httpRule avec la **Source = ERP-DB-SERVERS-ASG** (plus d'adresse IP directe)
-
-> **Capture 6c** — `screenshots/06c_asg_test_still_blocked.png`
-> - **Chemin :** Azure Cloud Shell
-> - **Quoi capturer :** La confirmation que le blocage fonctionne toujours avec l'ASG (même résultat qu'avec l'IP)
+<img width="926" height="406" alt="E3" src="https://github.com/user-attachments/assets/ea77eb14-da3a-4814-a753-441e352bd071" />
+<img width="958" height="320" alt="E2" src="https://github.com/user-attachments/assets/29756b1e-3792-4dbb-b81e-68be7982ba7f" />
 
 ---
 
@@ -493,7 +450,7 @@ az network nsg rule create \
 
 # ── PARTIE B : Création du compte de stockage ────────────────────────
 
-# Créer le compte de stockage (nom aléatoire pour l'unicité globale)
+# Créer le compte de stockage 
 STORAGEACCT=$(az storage account create \
                 --resource-group $rg \
                 --name engineeringdocs$RANDOM \
@@ -534,24 +491,11 @@ az storage account network-rule add \
     --vnet-name ERP-servers \
     --subnet Databases
 ```
+<img width="920" height="407" alt="F0" src="https://github.com/user-attachments/assets/c2d120ff-d89a-4c42-9fda-db298e903c9c" />
+<img width="917" height="307" alt="F1" src="https://github.com/user-attachments/assets/75cb19c3-ad44-40bc-b84d-cc370f9c58c8" />
+<img width="936" height="386" alt="F2" src="https://github.com/user-attachments/assets/6e4103f1-86ea-419c-a511-30af99742d37" />
+<img width="917" height="382" alt="F3" src="https://github.com/user-attachments/assets/a8f899ba-c1a5-49bd-b89c-ec087b58cd32" />
 
-### 📸 Captures d'écran à faire
-
-> **Capture 7a** — `screenshots/07a_nsg_outbound_rules.png`
-> - **Chemin :** Portail Azure → **NSG ERP-SERVERS-NSG → Règles de sécurité sortantes**
-> - **Quoi capturer :** Les deux nouvelles règles : Allow_Storage (190, vert) et Deny_Internet (200, rouge)
-
-> **Capture 7b** — `screenshots/07b_storage_account_created.png`
-> - **Chemin :** Portail Azure → **Comptes de stockage → engineeringdocsXXXX → Vue d'ensemble**
-> - **Quoi capturer :** Le compte de stockage avec le partage de fichiers `erp-data-share` visible
-
-> **Capture 7c** — `screenshots/07c_service_endpoint_subnet.png`
-> - **Chemin :** Portail Azure → **VNet ERP-servers → Sous-réseaux → Databases**
-> - **Quoi capturer :** Le sous-réseau Databases avec **"Microsoft.Storage"** listé dans les points de terminaison de service
-
-> **Capture 7d** — `screenshots/07d_storage_network_rule.png`
-> - **Chemin :** Portail Azure → **Compte de stockage → Sécurité + réseau → Réseau**
-> - **Quoi capturer :** La règle réseau montrant que seul le sous-réseau **Databases du VNet ERP-servers** est autorisé, et l'action par défaut = **Refuser**
 
 ---
 
@@ -565,7 +509,7 @@ Valider que toute l'architecture fonctionne conformément aux règles définies.
 ```bash
 # ── TEST 1 : AppServer tente de monter le partage Azure Storage → DOIT ÉCHOUER
 
-ssh -t azureuser@$APPSERVERIP \
+ssh -t polo@$APPSERVERIP \
     "mkdir azureshare; \
     sudo mount -t cifs //$STORAGEACCT.file.core.windows.net/erp-data-share azureshare \
     -o vers=3.0,username=$STORAGEACCT,password=$STORAGEKEY,dir_mode=0777,file_mode=0777,sec=ntlmssp; \
@@ -577,7 +521,7 @@ ssh -t azureuser@$APPSERVERIP \
 
 # ── TEST 2 : DataServer tente de monter le partage Azure Storage → DOIT RÉUSSIR
 
-ssh -t azureuser@$DATASERVERIP \
+ssh -t serge@$DATASERVERIP \
     "mkdir azureshare; \
     sudo mount -t cifs //$STORAGEACCT.file.core.windows.net/erp-data-share azureshare \
     -o vers=3.0,username=$STORAGEACCT,password=$STORAGEKEY,dir_mode=0777,file_mode=0777,sec=ntlmssp; \
@@ -597,16 +541,9 @@ Refer to the mount.cifs(8) manual page (e.g. man mount.cifs) and kernel log mess
 TARGET      SOURCE                                          FSTYPE  OPTIONS
 /home/azureuser/azureshare  //engineeringdocsXXXX.file.core.windows.net/erp-data-share  cifs    ...
 ```
+<img width="959" height="258" alt="G0" src="https://github.com/user-attachments/assets/7c77a012-8955-4fb9-96aa-c09f544ac168" />
 
-### 📸 Captures d'écran à faire
-
-> **Capture 8a** — `screenshots/08a_appserver_storage_denied.png`
-> - **Chemin :** Azure Cloud Shell (terminal)
-> - **Quoi capturer :** La commande de montage depuis AppServer avec le message d'erreur **"Permission denied"** ou **"mount error"**
-
-> **Capture 8b** — `screenshots/08b_dataserver_storage_mounted.png`
-> - **Chemin :** Azure Cloud Shell (terminal)
-> - **Quoi capturer :** La commande de montage depuis DataServer **réussie**, avec la sortie `findmnt` montrant le partage CIFS monté
+<img width="960" height="180" alt="G1" src="https://github.com/user-attachments/assets/15cf9c0a-318c-4612-97f7-06d1a0a4224a" />
 
 ---
 
@@ -633,19 +570,6 @@ TARGET      SOURCE                                          FSTYPE  OPTIONS
 | 65500 | DenyAllOutBound | * | * | * | ❌ Refuser | Tout bloquer |
 
 ---
-
-## 🧹 Nettoyage des ressources
-
-```bash
-# Supprimer tout le groupe de ressources (économiser les coûts)
-az group delete \
-    --name $rg \
-    --yes \
-    --no-wait
-
-echo "Suppression du groupe $rg en cours..."
-```
-
 > ⚠️ **Important :** Penser à supprimer les ressources après le lab pour éviter des frais inutiles.
 
 ---
@@ -681,40 +605,6 @@ echo "Suppression du groupe $rg en cours..."
 
 ---
 
-## 📁 Structure du dépôt
-
-```
-azure-nsg-service-endpoints/
-│
-├── README.md                        ← Ce fichier
-│
-├── screenshots/
-│   ├── 01a_vnet_created.png
-│   ├── 01b_subnets_list.png
-│   ├── 02a_nsg_created.png
-│   ├── 02b_vms_running.png
-│   ├── 02c_nsg_default_rules.png
-│   ├── 03a_ssh_blocked_default.png
-│   ├── 04a_ssh_rule_created.png
-│   ├── 04b_ssh_connected.png
-│   ├── 05a_http_rule_created.png
-│   ├── 05b_appserver_to_dataserver_ok.png
-│   ├── 05c_dataserver_to_appserver_blocked.png
-│   ├── 06a_asg_created.png
-│   ├── 06b_nsg_rule_with_asg.png
-│   ├── 06c_asg_test_still_blocked.png
-│   ├── 07a_nsg_outbound_rules.png
-│   ├── 07b_storage_account_created.png
-│   ├── 07c_service_endpoint_subnet.png
-│   ├── 07d_storage_network_rule.png
-│   ├── 08a_appserver_storage_denied.png
-│   └── 08b_dataserver_storage_mounted.png
-│
-└── scripts/
-    └── cleanup.sh                   ← Script de nettoyage des ressources
-```
-
----
 
 ## 🔗 Ressources
 
