@@ -280,7 +280,11 @@ Déployer un VM Scale Set **RHEL 9** capable d'adapter automatiquement sa capaci
 ### Commandes Azure CLI
 
 ```bash
-# 1. Créer le VMSS RHEL 9
+1️⃣ Créer le VM Scale Set (VMSS) RHEL 9
+
+Le VM Scale Set est un groupe de machines virtuelles identiques et gérées ensemble comme une seule unité. Contrairement aux VMs individuelles de la Phase 1, le VMSS permet à Azure d'ajouter ou supprimer automatiquement des instances selon la charge sans intervention manuelle. On utilise ici l'image RHEL 9 ARM64 associée à la taille Standard_B2ps_v2 (architecture Ampere ARM64) , une combinaison cohérente. Le mode Flexible permet une gestion fine des instances. Le VMSS est directement rattaché au Load Balancer et au Backend Pool créés en Phase 1, ce qui lui permet de recevoir immédiatement du trafic dès qu'une instance est prête. On démarre avec 2 instances comme base de départ.
+
+bash
 az vmss create \
   --resource-group rg-finsecure-availability \
   --name vmss-finsecure \
@@ -295,7 +299,11 @@ az vmss create \
   --admin-username polo \
   --generate-ssh-keys
 
-# 2. Configurer l'autoscale
+2️⃣ Configurer le moteur d'Autoscale
+
+L'Autoscale est le cerveau du scaling automatique , c'est lui qui surveille en permanence les métriques du VMSS et décide quand ajouter ou retirer des instances. Cette commande crée le profil de base de l'autoscale en définissant trois limites fondamentales : le minimum (2 instances toujours actives pour garantir la haute disponibilité, même en période creuse), le maximum (10 instances pour éviter une explosion des coûts en cas de pic prolongé), et le nombre par défaut (2 instances au démarrage). Sans ce profil, les règles Scale OUT et Scale IN des étapes 3 et 4 n'ont aucun cadre pour s'exécuter.
+
+bash
 az monitor autoscale create \
   --resource-group rg-finsecure-availability \
   --resource vmss-finsecure \
@@ -305,14 +313,22 @@ az monitor autoscale create \
   --max-count 10 \
   --count 2
 
-# 3. Règle Scale OUT (CPU > 75% pendant 5 min → +2 instances)
+3️⃣ Règle Scale OUT — Montée en charge
+
+La règle Scale OUT définit le déclencheur d'ajout automatique d'instances quand la charge augmente. Ici, si le CPU moyen de toutes les instances dépasse 75% pendant 5 minutes consécutives, Azure ajoute automatiquement +2 instances au VMSS. On ajoute 2 instances d'un coup (et non 1) pour absorber rapidement une montée en charge sans attendre un second déclenchement. La fenêtre de 5 minutes évite les faux positifs — un pic CPU de 30 secondes ne déclenche pas inutilement un scaling. C'est cette règle qui protège l'application FinSecure SA contre les surcharges et garantit la continuité de service lors des pics de trafic.
+
+bash
 az monitor autoscale rule create \
   --resource-group rg-finsecure-availability \
   --autoscale-name autoscale-finsecure \
   --condition "Percentage CPU > 75 avg 5m" \
   --scale out 2
 
-# 4. Règle Scale IN (CPU < 25% pendant 5 min → -1 instance)
+4️⃣ Règle Scale IN — Réduction de charge
+
+La règle Scale IN définit le déclencheur de suppression automatique d'instances quand la charge diminue. Si le CPU moyen descend sous 25% pendant 5 minutes consécutives, Azure supprime 1 instance du VMSS. On retire intentionnellement 1 seule instance à la fois (prudemment) pour éviter de supprimer trop rapidement et de se retrouver sous-dimensionné si la charge remontait brusquement. Cette règle est essentielle pour optimiser les coûts sans elle, le VMSS resterait à 10 instances même à 3h du matin avec zéro trafic. C'est l'équilibre entre performance (Scale OUT agressif) et économie (Scale IN progressif) qui caractérise une architecture cloud mature.
+
+bash
 az monitor autoscale rule create \
   --resource-group rg-finsecure-availability \
   --autoscale-name autoscale-finsecure \
@@ -329,9 +345,14 @@ az monitor autoscale rule create \
 | **Limite MIN** | — | 2 instances toujours actives | Garantir la disponibilité de base |
 | **Limite MAX** | — | 10 instances maximum | Maîtriser les coûts |
 
-**📸 Screenshot 3 :** *VMSS → Instances → Vue de la montée en charge (Scale Out)*
+<img width="914" height="397" alt="3" src="https://github.com/user-attachments/assets/2d74fac2-ac6d-4be5-9685-d927e630a5ec" />
 
-**📸 Screenshot 4 :** *Portail Azure → Autoscale → Historique des événements de scaling*
+<img width="918" height="408" alt="4" src="https://github.com/user-attachments/assets/62429490-f4ac-443f-a69b-4ec57a7fa2b4" />
+
+<img width="821" height="410" alt="5" src="https://github.com/user-attachments/assets/a787fff2-4429-4039-81ca-7eeceb8abf52" />
+
+
+<img width="899" height="395" alt="9" src="https://github.com/user-attachments/assets/f9aa4234-3f24-40a6-86f7-e6673c07c4ce" />
 
 ---
 
@@ -348,14 +369,14 @@ Distribuer les instances RHEL 9 du Scale Set sur les **3 Availability Zones** de
 az vmss create \
   --resource-group rg-finsecure-availability \
   --name vmss-finsecure-zones \
-  --image RedHat:RHEL:9-lvm-gen2:latest \
+  --image RedHat:rhel-arm64:9_8-arm64:latest\
   --vm-sku Standard_B2ps_v2 \
   --instance-count 3 \
   --zones 1 2 3 \
   --orchestration-mode Flexible \
   --load-balancer lb-finsecure \
   --backend-pool-name backendPool \
-  --admin-username Polo \
+  --admin-username polo \
   --generate-ssh-keys
 
 # Vérifier la répartition par zone
@@ -374,11 +395,15 @@ az vmss list-instances \
 | `vmss-finsecure-zones_1` | Zone 2 | DC Toronto-Centre | RHEL 9 |
 | `vmss-finsecure-zones_2` | Zone 3 | DC Toronto-Est | RHEL 9 |
 
+<img width="960" height="223" alt="1O" src="https://github.com/user-attachments/assets/ce330648-1b69-4c40-9ab1-47b6e1eac594" />
+
 > ✅ En cas de panne totale de la Zone 2, les Zones 1 et 3 continuent de servir le trafic sans interruption.
 
-**📸 Screenshot 5 :** *VMSS → Instances → Colonne Zone affichant 1, 2, 3*
+<img width="892" height="374" alt="11" src="https://github.com/user-attachments/assets/1fbb776c-93a5-45b2-8e75-ab4435819bab" />
 
-**📸 Screenshot 6 :** *Portail Azure → Load Balancer → Frontend IP zone-redondante*
+
+<img width="899" height="389" alt="12" src="https://github.com/user-attachments/assets/994efec4-5905-44b0-bc5e-6ec1799d7c2f" />
+
 
 ---
 
@@ -452,33 +477,6 @@ AzureActivity
 **📸 Screenshot 7 :** *Log Analytics → Query Explorer → Résultat Heartbeat RHEL 9*
 
 **📸 Screenshot 8 :** *Azure Monitor → Metrics → Graphe CPU des instances VMSS*
-
----
-
-## ✅ Tests de résilience
-
-Pour valider la conformité ISO 27001 (A.17 — Disponibilité), les simulations suivantes ont été réalisées :
-
-| Test | Méthode | Résultat |
-|:---|:---|:---|
-| **Panne VM** | Arrêt manuel de `vm-finsecure-1` (RHEL 9) | Basculement sur `vm-finsecure-2` en < 30 secondes |
-| **Pic de charge CPU** | Stress test CPU > 80 % sur les instances RHEL 9 | Scale OUT automatique : 2 → 4 instances en 3 minutes |
-| **Retour à la normale** | Arrêt du stress, CPU < 20 % | Scale IN automatique : 4 → 2 instances en 5 minutes |
-| **Alerte CPU** | Dépassement du seuil de 80 % | E-mail reçu dans les 2 minutes |
-| **Panne de zone** | Déploiement zoné simulé | Continuité assurée par les zones restantes |
-
----
-
-## 📈 Résultats et métriques
-
-### SLA atteint par configuration
-
-| Configuration | OS | SLA théorique | Scénario couvert |
-|---|---|---|---|
-| VM isolée | RHEL 9 | ~99,9 % | Maintenance planifiée uniquement |
-| Availability Set (2 VMs) | RHEL 9 | **99,95 %** | Défaillance matérielle intra-rack |
-| Availability Zones (2+ zones) | RHEL 9 | **99,99 %** | Panne complète d'un datacenter |
-| VMSS + Autoscale | RHEL 9 | Variable | Adaptation dynamique à la charge |
 
 ---
 
