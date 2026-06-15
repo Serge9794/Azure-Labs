@@ -51,7 +51,7 @@
 
 À la suite d'une interruption de service non planifiée ayant causé une indisponibilité de **4 heures**, la direction technique a mandaté la mise en place d'une architecture **hautement disponible, résiliente et scalable** sur Azure.
 
-**Objectif majeur :** Éliminer tout point de défaillance unique (SPOF) via une approche multi-couches couvrant le rack physique, le datacenter et la couche applicative.
+**Objectif majeur :** Éliminer tout point de défaillance unique  via une approche multi-couches couvrant le rack physique, le datacenter et la couche applicative.
 
 ---
 
@@ -61,10 +61,10 @@
 
 **Red Hat Enterprise Linux 9** a été retenu comme système d'exploitation pour l'ensemble des VMs du lab, pour les raisons suivantes :
 
-- **Niveau entreprise :** RHEL 9 est le standard de facto dans les environnements financiers et réglementés (PCI-DSS, ISO 27001). Sa certification FIPS 140-2 et son cycle de support long (jusqu'en 2032) en font un choix stratégique.
+- **Niveau entreprise :** RHEL 9 est le standard de facto dans les environnements financiers et réglementés (PCI-DSS, ISO 27001). Sa certification FIPS 140-2 et son cycle de support long  en font un choix stratégique.
 - **Sécurité native :** SELinux en mode `enforcing` par défaut, firewalld intégré, et politique de mots de passe renforcée out-of-the-box.
-- **Cohérence avec l'infrastructure existante :** FinSecure SA dispose de serveurs RHEL 9 on-premises gérés via Azure Arc — cette homogénéité simplifie les opérations, la supervision et la gestion des patches.
-- **Support Azure de première classe :** RedHat et Microsoft maintiennent un partenariat officiel. RHEL 9 est disponible en image certifiée (`RedHat:RHEL:9-lvm-gen2:latest`) directement depuis la marketplace Azure.
+- **Cohérence avec l'infrastructure existante :** FinSecure SA dispose de serveurs RHEL 9 on-premises gérés via Azure Arc; cette homogénéité simplifie les opérations, la supervision et la gestion des patches.
+- **Support Azure de première classe :** RedHat et Microsoft maintiennent un partenariat officiel. RHEL 9 est disponible en image certifiée (`RedHat:rhel-arm64:9_8-arm64:latest`) directement depuis la marketplace Azure.
 - **SKU retenu :** `9-lvm-gen2` — image Gen2 avec partitionnement LVM, recommandée pour les charges de production sur Azure.
 
 ---
@@ -117,7 +117,7 @@ L'infrastructure est déployée dans la région `canadacentral` avec trois nivea
 
 | Service Azure | Rôle dans le projet |
 |---|---|
-| **Azure Virtual Machines** | Compute — RHEL 9 (`9-lvm-gen2`) sur `Standard_B2ps_v2` |
+| **Azure Virtual Machines** | Compute  RHEL 9 (`rhel-arm64:9_8-arm64:latest`) sur `Standard_B2ps_v2` |
 | **Availability Sets** | Redondance intra-datacenter (2 FD + 5 UD) |
 | **Availability Zones** | Redondance inter-datacenter (Zone 1, 2, 3) |
 | **VM Scale Sets (VMSS)** | Scaling horizontal automatique (2 → 10 instances RHEL 9) |
@@ -129,7 +129,7 @@ L'infrastructure est déployée dans la région `canadacentral` avec trois nivea
 
 **Région :** `canadacentral`
 **Resource Group :** `rg-finsecure-availability`
-**OS :** Red Hat Enterprise Linux 9 — `RedHat:RHEL:9-lvm-gen2:latest`
+**OS :** Red Hat Enterprise Linux 9  `RedHat:rhel-arm64:9_8-arm64:latest`
 **SKU VM :** `Standard_B2ps_v2`
 
 ---
@@ -142,13 +142,19 @@ Déployer deux VMs **RHEL 9** dans un Availability Set configuré avec 2 Fault D
 
 ### Commandes Azure CLI
 
+
+1️⃣ Créer le groupe de ressources
+
+Le Resource Group est le conteneur logique qui regroupe toutes les ressources Azure du projet. C'est le premier élément à créer ,toutes les ressources suivantes (VMs, réseau, Load Balancer) y seront rattachées. Sans lui, aucune ressource ne peut être déployée. On le place dans canadacentral pour bénéficier d'une bonne capacité de SKUs disponibles.
 ```bash
-# 1. Créer le groupe de ressources
 az group create \
   --name rg-finsecure-availability \
   --location canadacentral
 
-# 2. Créer le VNet et le Subnet
+2️⃣ Créer le VNet et le Subnet
+
+Le Virtual Network (VNet) est le réseau privé isolé dans lequel toutes les VMs vont communiquer entre elles. Le Subnet est une subdivision de ce réseau qui regroupe les VMs d'une même couche applicative. Sans réseau virtuel, les VMs n'ont pas de canal de communication interne sécurisé. Le préfixe 10.0.0.0/16 offre jusqu'à 65 536 adresses IP privées, et le subnet 10.0.1.0/24 en réserve 256 pour nos VMs.
+```bash
 az network vnet create \
   --resource-group rg-finsecure-availability \
   --name vnet-finsecure \
@@ -157,7 +163,11 @@ az network vnet create \
   --subnet-prefix 10.0.1.0/24 \
   --location canadacentral
 
-# 3. Créer l'Availability Set
+3️⃣ Créer l'Availability Set
+
+L'Availability Set est un mécanisme Azure qui garantit que les VMs sont distribuées sur des infrastructures physiques distinctes au sein du même datacenter. Les 2 Fault Domains signifient que les VMs sont sur des racks physiques différents (alimentation et réseau indépendants). Les 5 Update Domains garantissent qu'Azure ne redémarre jamais toutes les VMs simultanément lors d'une maintenance planifiée. Il faut impérativement créer l'Availability Set avant les VMs, car une VM ne peut y être ajoutée qu'à sa création.
+
+```bash
 az vm availability-set create \
   --resource-group rg-finsecure-availability \
   --name avset-finsecure \
@@ -165,35 +175,48 @@ az vm availability-set create \
   --platform-fault-domain-count 2 \
   --platform-update-domain-count 5
 
-# 4. Créer VM 1 (RHEL 9)
+4️⃣ Créer VM 1 (RHEL 9)
+
+La première machine virtuelle est déployée sous Red Hat Enterprise Linux 9 (RHEL 9 LVM Gen2), choix cohérent avec la préparation RHCSA en cours. Elle est placée dans l'Availability Set créé à l'étape 3, dans le subnet privé, sans IP publique (sécurité renforcée , l'accès se fera via le Load Balancer uniquement). Le flag --no-wait permet de lancer la création en arrière-plan sans bloquer le terminal, afin d'enchaîner immédiatement avec la VM 2.
+
+bash
 az vm create \
   --resource-group rg-finsecure-availability \
   --name vm-finsecure-1 \
   --availability-set avset-finsecure \
-  --image RedHat:RHEL:9-lvm-gen2:latest \
+  --image RedHat:rhel-arm64:9_8-arm64:latest \
   --size Standard_B2ps_v2 \
-  --admin-username Polo \
+  --admin-username polo \
   --generate-ssh-keys \
   --vnet-name vnet-finsecure \
   --subnet subnet-finsecure \
-  --public-ip-address "" \
+  --public-ip-address ""
   --no-wait
 
-# 5. Créer VM 2 (RHEL 9)
+5️⃣ Créer VM 2 (RHEL 9)
+
+La deuxième VM est identique à la première en termes de configuration (même image, même taille, même réseau) mais Azure la place automatiquement sur un Fault Domain différent (FD:1) et un Update Domain différent (UD:1) grâce à l'Availability Set. C'est ce mécanisme qui garantit que si vm-finsecure-1 tombe (panne de rack, maintenance), vm-finsecure-2 continue de servir les requêtes sans interruption.
+
+```bash
 az vm create \
-  --resource-group rg-finsecure-availability \
+ --resource-group rg-finsecure-availability \
   --name vm-finsecure-2 \
   --availability-set avset-finsecure \
-  --image RedHat:RHEL:9-lvm-gen2:latest \
+  --image RedHat:rhel-arm64:9_8-arm64:latest \
   --size Standard_B2ps_v2 \
-  --admin-username Polo \
+  --admin-username polo \
   --generate-ssh-keys \
   --vnet-name vnet-finsecure \
   --subnet subnet-finsecure \
-  --public-ip-address "" \
+  --public-ip-address ""
   --no-wait
+  
 
-# 6. Créer le Load Balancer
+6️⃣ Créer le Load Balancer
+
+L'Azure Load Balancer Standard est le point d'entrée unique du trafic externe vers les VMs. Il expose une IP publique unique côté internet (frontendIP) et distribue les requêtes vers le Backend Pool qui contient les deux VMs. Le SKU Standard est obligatoire pour supporter les Availability Zones et offre des fonctionnalités avancées (haute disponibilité des ports, métriques Azure Monitor). Sans Load Balancer, les VMs en mode haute disponibilité ne seraient pas accessibles depuis l'extérieur.
+
+```bash
 az network lb create \
   --resource-group rg-finsecure-availability \
   --name lb-finsecure \
@@ -201,7 +224,11 @@ az network lb create \
   --frontend-ip-name frontendIP \
   --backend-pool-name backendPool
 
-# 7. Créer le Health Probe (port 80)
+7️⃣ Créer le Health Probe (port 80)
+
+Le Health Probe est le mécanisme de surveillance de santé des VMs par le Load Balancer. Toutes les quelques secondes, Azure envoie une sonde TCP sur le port 80 de chaque VM du backend pool. Si une VM ne répond plus (arrêt, panne, surcharge), le Load Balancer la retire automatiquement du pool et cesse de lui envoyer du trafic jusqu'à ce qu'elle réponde à nouveau. C'est le cerveau de la haute disponibilité ; sans Health Probe, le LB continuerait d'envoyer du trafic vers une VM morte.
+
+```bash
 az network lb probe create \
   --resource-group rg-finsecure-availability \
   --lb-name lb-finsecure \
@@ -209,7 +236,11 @@ az network lb probe create \
   --protocol tcp \
   --port 80
 
-# 8. Créer la règle de load balancing
+8️⃣ Créer la règle de load balancing
+
+La règle de load balancing définit comment le trafic entrant est distribué entre les VMs du backend pool. Elle lie le frontendIP (IP publique) au backendPool (les VMs) sur le port 80 (HTTP). Elle référence le healthProbe de l'étape 7 pour n'envoyer du trafic qu'aux VMs en bonne santé. C'est la règle de routage centrale du Load Balancer ; sans elle, le trafic entrant n'a aucune instruction sur comment être distribué vers les VMs.
+
+```bash
 az network lb rule create \
   --resource-group rg-finsecure-availability \
   --lb-name lb-finsecure \
@@ -220,6 +251,7 @@ az network lb rule create \
   --frontend-ip-name frontendIP \
   --backend-pool-name backendPool \
   --probe-name healthProbe
+
 ```
 
 ### Résultat attendu
@@ -231,9 +263,11 @@ az network lb rule create \
 
 > ✅ Si le rack hébergeant FD 0 tombe en panne, seule `vm-finsecure-1` est impactée. `vm-finsecure-2` continue de traiter les requêtes sans interruption.
 
-**📸 Screenshot 1 :** *Portail Azure → Availability Set → Répartition FD/UD des VMs*
+<img width="915" height="402" alt="1" src="https://github.com/user-attachments/assets/8926e9e0-55a2-4942-a70b-a295f6540217" />
 
-**📸 Screenshot 2 :** *Load Balancer → Backend Pool → Membres actifs et état de santé*
+
+<img width="918" height="287" alt="2" src="https://github.com/user-attachments/assets/9be52947-5de3-4a69-8cce-894807b2ce15" />
+
 
 ---
 
@@ -250,7 +284,7 @@ Déployer un VM Scale Set **RHEL 9** capable d'adapter automatiquement sa capaci
 az vmss create \
   --resource-group rg-finsecure-availability \
   --name vmss-finsecure \
-  --image RedHat:RHEL:9-lvm-gen2:latest \
+  --image RedHat:rhel-arm64:9_8-arm64:latest \
   --vm-sku Standard_B2ps_v2 \
   --instance-count 2 \
   --orchestration-mode Flexible \
@@ -258,7 +292,7 @@ az vmss create \
   --subnet subnet-finsecure \
   --load-balancer lb-finsecure \
   --backend-pool-name backendPool \
-  --admin-username Polo \
+  --admin-username polo \
   --generate-ssh-keys
 
 # 2. Configurer l'autoscale
@@ -305,7 +339,7 @@ az monitor autoscale rule create \
 
 ### Objectif
 
-Distribuer les instances RHEL 9 du Scale Set sur les **3 Availability Zones** de `canadacentral` pour assurer une résilience maximale. Cette configuration garantit que même si un datacenter complet est hors ligne (incendie, panne électrique majeure), le service reste disponible via les deux autres zones — sans intervention manuelle.
+Distribuer les instances RHEL 9 du Scale Set sur les **3 Availability Zones** de `canadacentral` pour assurer une résilience maximale. Cette configuration garantit que même si un datacenter complet est hors ligne (incendie, panne électrique majeure), le service reste disponible via les deux autres zones sans intervention manuelle.
 
 ### Commandes Azure CLI
 
