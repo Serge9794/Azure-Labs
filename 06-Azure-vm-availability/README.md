@@ -1,90 +1,115 @@
 # 🏛️ Azure VM Availability Lab — FinSecure SA
 
-> **Projet Portfolio Azure | AZ-104**
-> Mise en œuvre complète de la haute disponibilité et du scaling automatique des machines virtuelles Azure dans un contexte d'entreprise financière.
+> **Projet Portfolio Cloud & Sécurité | AZ-104**
+> Déploiement d'une architecture hautement disponible (SLA 99,99 %) avec redondance zonale, autoscaling et serveurs Linux Red Hat Enterprise.
 
 ---
 
 ![Azure](https://img.shields.io/badge/Azure-VM%20Availability-0078D4?style=for-the-badge&logo=microsoftazure&logoColor=white)
 ![AZ-104](https://img.shields.io/badge/Certification-AZ--104-0078D4?style=for-the-badge&logo=microsoft&logoColor=white)
+![RHEL](https://img.shields.io/badge/OS-RHEL%209-EE0000?style=for-the-badge&logo=redhat&logoColor=white)
 ![Status](https://img.shields.io/badge/Statut-Complété-28a745?style=for-the-badge)
-![Lab](https://img.shields.io/badge/Type-Hands--on%20Lab-orange?style=for-the-badge)
+
+---
+
+## 🛡️ Sécurité, Conformité et Gouvernance (ISO 27001)
+
+*Ce projet est structuré selon les exigences de la norme ISO 27001, garantissant la résilience et la traçabilité des systèmes.*
+
+| Domaine ISO | Implémentation technique |
+|---|---|
+| **Disponibilité (A.17)** | Availability Sets et Availability Zones pour garantir la continuité de service |
+| **Gestion des accès (A.9)** | Principe du moindre privilège via NSG + authentification SSH par clé (sans mot de passe) |
+| **Traçabilité (A.12.4)** | Collecte centralisée des logs dans un Log Analytics Workspace via Azure Monitor Agent |
+| **Gestion des changements** | Automatisation du cycle de vie via Azure CLI (approche Infrastructure as Code) |
+| **Durcissement OS (A.12.6)** | RHEL 9 avec SELinux enforcing, firewalld et mises à jour de sécurité intégrées |
+
+> **Note de sécurité :** *Dans ce lab, l'authentification SSH par clé (`--generate-ssh-keys`) est utilisée à la place des mots de passe, conformément aux bonnes pratiques. En production, les clés et secrets sont gérés via Azure Key Vault.*
 
 ---
 
 ## 📋 Table des matières
 
-- [Contexte du projet](#-contexte-du-projet)
-- [Objectifs techniques](#-objectifs-techniques)
-- [Architecture déployée](#-architecture-déployée)
+- [Contexte et objectifs](#-contexte-et-objectifs)
+- [Choix technologiques](#-choix-technologiques)
+- [Architecture technique](#-architecture-technique)
 - [Technologies et services](#-technologies-et-services)
 - [Phase 1 — Availability Sets + Load Balancer](#-phase-1--availability-sets--load-balancer)
 - [Phase 2 — VM Scale Sets + Autoscale](#-phase-2--vm-scale-sets--autoscale)
 - [Phase 3 — Availability Zones](#-phase-3--availability-zones)
-- [Supervision — Azure Monitor + KQL](#-supervision--azure-monitor--kql)
-- [Alertes configurées](#-alertes-configurées)
+- [Supervision et Alerting (KQL)](#-supervision-et-alerting-kql)
+- [Tests de résilience](#-tests-de-résilience)
 - [Résultats et métriques](#-résultats-et-métriques)
 - [Compétences démontrées](#-compétences-démontrées)
 - [Auteur](#-auteur)
 
 ---
 
-## 🏢 Contexte du projet
+## 🏢 Contexte et objectifs
 
-**FinSecure SA** est une société de services financiers basée à Cotonou, Bénin, dont l'infrastructure héberge une **application web critique**  devant respecter un SLA de **99,99 % de disponibilité**.
+**FinSecure SA** est une société de services financiers dont l'infrastructure héberge une **application web critique** soumise à un SLA de **99,99 % de disponibilité**.
 
-Suite à une interruption de service non planifiée ayant entraîné une indisponibilité de 4 heures, la direction technique a mandaté la mise en place d'une architecture **hautement disponible, résiliente et scalable** sur Azure.
+À la suite d'une interruption de service non planifiée ayant causé une indisponibilité de **4 heures**, la direction technique a mandaté la mise en place d'une architecture **hautement disponible, résiliente et scalable** sur Azure.
 
-Ce lab documente l'ensemble du déploiement : Availability Sets, VM Scale Sets avec Autoscale, et Availability Zones, ainsi que la supervision via Azure Monitor.
-
----
-
-## 🎯 Objectifs techniques
-
-- [x] Déployer un **Availability Set** avec Update Domains et Fault Domains pour la redondance intra-datacenter
-- [x] Configurer un **Azure Load Balancer** distribué sur les VMs du set
-- [x] Déployer un **VM Scale Set (VMSS)** en mode Flexible avec règles d'autoscaling CPU
-- [x] Distribuer les VMs sur plusieurs **Availability Zones** (Zone 1, 2, 3)
-- [x] Activer **Azure Monitor Agent** et configurer des **règles d'alerte**
-- [x] Rédiger des requêtes **KQL** pour analyser les métriques de disponibilité
-- [x] Valider la résilience par simulation de panne
+**Objectif majeur :** Éliminer tout point de défaillance unique (SPOF) via une approche multi-couches couvrant le rack physique, le datacenter et la couche applicative.
 
 ---
 
-## 🏗️ Architecture déployée
+## 💡 Choix technologiques
+
+### Pourquoi RHEL 9 ?
+
+**Red Hat Enterprise Linux 9** a été retenu comme système d'exploitation pour l'ensemble des VMs du lab, pour les raisons suivantes :
+
+- **Niveau entreprise :** RHEL 9 est le standard de facto dans les environnements financiers et réglementés (PCI-DSS, ISO 27001). Sa certification FIPS 140-2 et son cycle de support long (jusqu'en 2032) en font un choix stratégique.
+- **Sécurité native :** SELinux en mode `enforcing` par défaut, firewalld intégré, et politique de mots de passe renforcée out-of-the-box.
+- **Cohérence avec l'infrastructure existante :** FinSecure SA dispose de serveurs RHEL 9 on-premises gérés via Azure Arc — cette homogénéité simplifie les opérations, la supervision et la gestion des patches.
+- **Support Azure de première classe :** RedHat et Microsoft maintiennent un partenariat officiel. RHEL 9 est disponible en image certifiée (`RedHat:RHEL:9-lvm-gen2:latest`) directement depuis la marketplace Azure.
+- **SKU retenu :** `9-lvm-gen2` — image Gen2 avec partitionnement LVM, recommandée pour les charges de production sur Azure.
+
+---
+
+## 🏗️ Architecture technique
+
+L'infrastructure est déployée dans la région `canadacentral` avec trois niveaux de redondance imbriqués :
 
 ```
-                        ┌─────────────────────────────────────────────────────┐
-                        │              Azure Region : francecentral            │
-                        │                                                     │
-                        │  ┌─────────────┐  ┌─────────────┐  ┌────────────┐  │
-                        │  │   Zone 1    │  │   Zone 2    │  │   Zone 3   │  │
-                        │  │             │  │             │  │            │  │
-                        │  │ ┌─────────┐ │  │ ┌─────────┐ │  │┌─────────┐ │  │
-                        │  │ │ VM-AS-1 │ │  │ │ VM-AS-2 │ │  ││ VMSS    │ │  │
-                        │  │ │(FD:0,   │ │  │ │(FD:1,   │ │  ││Instances│ │  │
-                        │  │ │ UD:0)   │ │  │ │ UD:1)   │ │  ││(2→10)   │ │  │
-                        │  │ └────┬────┘ │  │ └────┬────┘ │  │└────┬────┘ │  │
-                        │  └──────┼──────┘  └──────┼──────┘  └─────┼──────┘  │
-                        │         │                 │               │         │
-                        │         └────────┬────────┘               │         │
-                        │                  │                        │         │
-                        │         ┌────────▼────────┐               │         │
-                        │         │  Azure Load     │               │         │
-                        │         │  Balancer (L4)  │◄─────────────┘         │
-                        │         │  (Public IP)    │                         │
-                        │         └────────┬────────┘                         │
-                        │                  │                                   │
-                        │         ┌────────▼────────┐                          │
-                        │         │  Azure Monitor  │                          │
-                        │         │  + Log Analytics│                          │
-                        │         │  + Alertes      │                          │
-                        │         └─────────────────┘                          │
-                        └─────────────────────────────────────────────────────┘
-                                           │
-                                    Internet / Clients
-                                    FinSecure SA
+                   ┌──────────────────────────────────────────────────────┐
+                   │              Azure Region : canadacentral            │
+                   │                                                      │
+                   │  ┌────────────┐  ┌────────────┐  ┌───────────────┐  │
+                   │  │   Zone 1   │  │   Zone 2   │  │    Zone 3     │  │
+                   │  │            │  │            │  │               │  │
+                   │  │ ┌────────┐ │  │ ┌────────┐ │  │ ┌───────────┐ │  │
+                   │  │ │RHEL 9  │ │  │ │RHEL 9  │ │  │ │VMSS RHEL9 │ │  │
+                   │  │ │VM-AS-1 │ │  │ │VM-AS-2 │ │  │ │(2→10 inst)│ │  │
+                   │  │ │FD:0 UD:0│ │  │ │FD:1 UD:1│ │  │           │ │  │
+                   │  │ └───┬────┘ │  │ └───┬────┘ │  │ └─────┬─────┘ │  │
+                   │  └─────┼──────┘  └─────┼──────┘  └───────┼───────┘  │
+                   │        │               │                  │          │
+                   │        └───────┬───────┘                  │          │
+                   │                │                          │          │
+                   │       ┌────────▼─────────┐                │          │
+                   │       │  Azure Load      │◄───────────────┘          │
+                   │       │  Balancer (L4)   │                           │
+                   │       │  (Public IP)     │                           │
+                   │       └────────┬─────────┘                           │
+                   │                │                                      │
+                   │       ┌────────▼─────────┐                           │
+                   │       │  Azure Monitor   │                           │
+                   │       │  + Log Analytics │                           │
+                   │       │  + AMA + Alertes │                           │
+                   │       └──────────────────┘                           │
+                   └──────────────────────────────────────────────────────┘
+                                    │
+                             Internet / Clients
+                             FinSecure SA
 ```
+
+**Trois niveaux de redondance :**
+- **Couche Calcul :** VMs RHEL 9 réparties sur Fault Domains, Update Domains et Availability Zones
+- **Couche Réseau :** Load Balancer L4 avec Health Probes assurant la répartition de charge
+- **Couche Supervision :** Azure Monitor + AMA assurant la visibilité et l'alerting proactif
 
 ---
 
@@ -92,27 +117,28 @@ Ce lab documente l'ensemble du déploiement : Availability Sets, VM Scale Sets a
 
 | Service Azure | Rôle dans le projet |
 |---|---|
-| **Azure Virtual Machines** | Compute — VMs Windows Server 2022 |
-| **Availability Sets** | Redondance intra-datacenter (FD + UD) |
+| **Azure Virtual Machines** | Compute — RHEL 9 (`9-lvm-gen2`) sur `Standard_B2ps_v2` |
+| **Availability Sets** | Redondance intra-datacenter (2 FD + 5 UD) |
 | **Availability Zones** | Redondance inter-datacenter (Zone 1, 2, 3) |
-| **VM Scale Sets (VMSS)** | Scaling horizontal automatique |
-| **Azure Load Balancer (L4)** | Distribution du trafic entre VMs |
-| **Azure Monitor** | Supervision des métriques et logs |
-| **Log Analytics Workspace** | Centralisation des données de monitoring |
-| **Azure Monitor Agent (AMA)** | Collecte des métriques depuis les VMs |
-| **Action Groups** | Notification par email lors des alertes |
-| **Azure CLI** | Provisionnement et automatisation |
+| **VM Scale Sets (VMSS)** | Scaling horizontal automatique (2 → 10 instances RHEL 9) |
+| **Azure Load Balancer (L4)** | Distribution du trafic avec Health Probes |
+| **Azure Monitor + AMA** | Supervision des métriques et des logs |
+| **Log Analytics Workspace** | Centralisation et analyse via KQL |
+| **Action Groups** | Notification e-mail/SMS à l'équipe d'astreinte |
+| **Azure CLI** | Provisionnement et automatisation (IaC) |
 
-**Région :** `francecentral`
+**Région :** `canadacentral`
 **Resource Group :** `rg-finsecure-availability`
-**Abonnement :** Azure Pay-As-You-Go (actif)
+**OS :** Red Hat Enterprise Linux 9 — `RedHat:RHEL:9-lvm-gen2:latest`
+**SKU VM :** `Standard_B2ps_v2`
 
 ---
 
 ## 🔵 Phase 1 — Availability Sets + Load Balancer
 
 ### Objectif
-Déployer deux VMs dans un **Availability Set** avec 2 Fault Domains et 5 Update Domains, puis distribuer le trafic via un **Azure Load Balancer**.
+
+Déployer deux VMs **RHEL 9** dans un Availability Set configuré avec 2 Fault Domains et 5 Update Domains, puis distribuer le trafic entrant via un Azure Load Balancer. Les Fault Domains protègent contre les pannes matérielles (rack, alimentation, switch) ; les Update Domains garantissent qu'Azure ne redémarre jamais toutes les VMs simultanément lors d'une maintenance.
 
 ### Commandes Azure CLI
 
@@ -120,32 +146,54 @@ Déployer deux VMs dans un **Availability Set** avec 2 Fault Domains et 5 Update
 # 1. Créer le groupe de ressources
 az group create \
   --name rg-finsecure-availability \
-  --location francecentral
+  --location canadacentral
 
-# 2. Créer l'Availability Set
+# 2. Créer le VNet et le Subnet
+az network vnet create \
+  --resource-group rg-finsecure-availability \
+  --name vnet-finsecure \
+  --address-prefix 10.0.0.0/16 \
+  --subnet-name subnet-finsecure \
+  --subnet-prefix 10.0.1.0/24 \
+  --location canadacentral
+
+# 3. Créer l'Availability Set
 az vm availability-set create \
   --resource-group rg-finsecure-availability \
   --name avset-finsecure \
-  --location francecentral \
+  --location canadacentral \
   --platform-fault-domain-count 2 \
   --platform-update-domain-count 5
 
-# 3. Créer les VMs dans l'Availability Set
-for i in 1 2; do
-  az vm create \
-    --resource-group rg-finsecure-availability \
-    --name vm-finsecure-$i \
-    --availability-set avset-finsecure \
-    --image Win2022AzureEditionCore \
-    --size Standard_B2s \
-    --admin-username Polo \
-    --admin-password "FinSecure@2025!" \
-    --vnet-name vnet-finsecure \
-    --subnet subnet-finsecure \
-    --public-ip-address ""
-done
+# 4. Créer VM 1 (RHEL 9)
+az vm create \
+  --resource-group rg-finsecure-availability \
+  --name vm-finsecure-1 \
+  --availability-set avset-finsecure \
+  --image RedHat:RHEL:9-lvm-gen2:latest \
+  --size Standard_B2ps_v2 \
+  --admin-username Polo \
+  --generate-ssh-keys \
+  --vnet-name vnet-finsecure \
+  --subnet subnet-finsecure \
+  --public-ip-address "" \
+  --no-wait
 
-# 4. Créer le Load Balancer
+# 5. Créer VM 2 (RHEL 9)
+az vm create \
+  --resource-group rg-finsecure-availability \
+  --name vm-finsecure-2 \
+  --availability-set avset-finsecure \
+  --image RedHat:RHEL:9-lvm-gen2:latest \
+  --size Standard_B2ps_v2 \
+  --admin-username Polo \
+  --generate-ssh-keys \
+  --vnet-name vnet-finsecure \
+  --subnet subnet-finsecure \
+  --public-ip-address "" \
+  --no-wait
+
+# 6. Créer le Load Balancer
 az network lb create \
   --resource-group rg-finsecure-availability \
   --name lb-finsecure \
@@ -153,7 +201,15 @@ az network lb create \
   --frontend-ip-name frontendIP \
   --backend-pool-name backendPool
 
-# 5. Créer la règle de load balancing (port 80)
+# 7. Créer le Health Probe (port 80)
+az network lb probe create \
+  --resource-group rg-finsecure-availability \
+  --lb-name lb-finsecure \
+  --name healthProbe \
+  --protocol tcp \
+  --port 80
+
+# 8. Créer la règle de load balancing
 az network lb rule create \
   --resource-group rg-finsecure-availability \
   --lb-name lb-finsecure \
@@ -164,23 +220,18 @@ az network lb rule create \
   --frontend-ip-name frontendIP \
   --backend-pool-name backendPool \
   --probe-name healthProbe
-
-# 6. Créer le Health Probe
-az network lb probe create \
-  --resource-group rg-finsecure-availability \
-  --lb-name lb-finsecure \
-  --name healthProbe \
-  --protocol tcp \
-  --port 80
 ```
 
 ### Résultat attendu
 
-- VM `vm-finsecure-1` → Fault Domain 0, Update Domain 0
-- VM `vm-finsecure-2` → Fault Domain 1, Update Domain 1
-- Si FD 0 tombe, seule `vm-finsecure-1` est affectée → `vm-finsecure-2` continue de servir les requêtes
+| VM | Fault Domain | Update Domain | OS |
+|---|---|---|---|
+| `vm-finsecure-1` | FD 0 | UD 0 | RHEL 9 |
+| `vm-finsecure-2` | FD 1 | UD 1 | RHEL 9 |
 
-**📸 Screenshot 1 :** *Vue du portail Azure → Availability Set → Répartition FD/UD des VMs*
+> ✅ Si le rack hébergeant FD 0 tombe en panne, seule `vm-finsecure-1` est impactée. `vm-finsecure-2` continue de traiter les requêtes sans interruption.
+
+**📸 Screenshot 1 :** *Portail Azure → Availability Set → Répartition FD/UD des VMs*
 
 **📸 Screenshot 2 :** *Load Balancer → Backend Pool → Membres actifs et état de santé*
 
@@ -189,24 +240,25 @@ az network lb probe create \
 ## 🟢 Phase 2 — VM Scale Sets + Autoscale
 
 ### Objectif
-Déployer un **VM Scale Set** capable de s'adapter automatiquement à la charge CPU, de 2 instances minimum à 10 instances maximum.
+
+Déployer un VM Scale Set **RHEL 9** capable d'adapter automatiquement sa capacité selon la charge CPU, entre 2 instances minimum et 10 instances maximum. Cette élasticité répond aux pics de charge tout en optimisant les coûts (FinOps) durant les périodes creuses.
 
 ### Commandes Azure CLI
 
 ```bash
-# 1. Créer le VMSS
+# 1. Créer le VMSS RHEL 9
 az vmss create \
   --resource-group rg-finsecure-availability \
   --name vmss-finsecure \
-  --image Ubuntu2204 \
-  --vm-sku Standard_B2s \
+  --image RedHat:RHEL:9-lvm-gen2:latest \
+  --vm-sku Standard_B2ps_v2 \
   --instance-count 2 \
   --orchestration-mode Flexible \
   --vnet-name vnet-finsecure \
   --subnet subnet-finsecure \
   --load-balancer lb-finsecure \
   --backend-pool-name backendPool \
-  --admin-username azureadmin \
+  --admin-username Polo \
   --generate-ssh-keys
 
 # 2. Configurer l'autoscale
@@ -236,12 +288,12 @@ az monitor autoscale rule create \
 
 ### Tableau des règles d'autoscale
 
-| Règle | Condition | Action | Cooldown |
+| Règle | Condition | Action | Objectif |
 |---|---|---|---|
-| **Scale OUT** | CPU > 75% (moy. 5 min) | +2 instances | 5 min |
-| **Scale IN** | CPU < 25% (moy. 5 min) | -1 instance | 5 min |
-| **Limite MIN** | — | 2 instances toujours actives | — |
-| **Limite MAX** | — | 10 instances maximum | — |
+| **Scale OUT** | CPU > 75 % (moy. 5 min) | +2 instances RHEL 9 | Absorber la demande |
+| **Scale IN** | CPU < 25 % (moy. 5 min) | -1 instance RHEL 9 | Optimisation des coûts (FinOps) |
+| **Limite MIN** | — | 2 instances toujours actives | Garantir la disponibilité de base |
+| **Limite MAX** | — | 10 instances maximum | Maîtriser les coûts |
 
 **📸 Screenshot 3 :** *VMSS → Instances → Vue de la montée en charge (Scale Out)*
 
@@ -252,17 +304,18 @@ az monitor autoscale rule create \
 ## 🟣 Phase 3 — Availability Zones
 
 ### Objectif
-Distribuer les VMs du Scale Set sur les **3 Availability Zones** de `francecentral` pour une résilience maximale contre la panne d'un datacenter entier.
+
+Distribuer les instances RHEL 9 du Scale Set sur les **3 Availability Zones** de `canadacentral` pour assurer une résilience maximale. Cette configuration garantit que même si un datacenter complet est hors ligne (incendie, panne électrique majeure), le service reste disponible via les deux autres zones — sans intervention manuelle.
 
 ### Commandes Azure CLI
 
 ```bash
-# Créer un VMSS multi-zones (Zone 1, 2 et 3)
+# Créer un VMSS RHEL 9 multi-zones (Zone 1, 2 et 3)
 az vmss create \
   --resource-group rg-finsecure-availability \
   --name vmss-finsecure-zones \
-  --image Ubuntu2204 \
-  --vm-sku Standard_B2s \
+  --image RedHat:RHEL:9-lvm-gen2:latest \
+  --vm-sku Standard_B2ps_v2 \
   --instance-count 3 \
   --zones 1 2 3 \
   --orchestration-mode Flexible \
@@ -281,36 +334,37 @@ az vmss list-instances \
 
 ### Résultat attendu
 
-| Instance | Zone | Datacenter |
-|---|---|---|
-| `vmss-finsecure-zones_0` | Zone 1 | DC Paris-Ouest |
-| `vmss-finsecure-zones_1` | Zone 2 | DC Paris-Centre |
-| `vmss-finsecure-zones_2` | Zone 3 | DC Paris-Est |
+| Instance | Zone | Datacenter | OS |
+|---|---|---|---|
+| `vmss-finsecure-zones_0` | Zone 1 | DC Toronto-Ouest | RHEL 9 |
+| `vmss-finsecure-zones_1` | Zone 2 | DC Toronto-Centre | RHEL 9 |
+| `vmss-finsecure-zones_2` | Zone 3 | DC Toronto-Est | RHEL 9 |
 
-> ✅ Si Zone 2 tombe en panne totale → Zone 1 et Zone 3 continuent de servir le trafic sans interruption.
+> ✅ En cas de panne totale de la Zone 2, les Zones 1 et 3 continuent de servir le trafic sans interruption.
 
 **📸 Screenshot 5 :** *VMSS → Instances → Colonne Zone affichant 1, 2, 3*
 
-**📸 Screenshot 6 :** *Portail Azure → Load Balancer → Zone-redundant Frontend IP*
+**📸 Screenshot 6 :** *Portail Azure → Load Balancer → Frontend IP zone-redondante*
 
 ---
 
-## 📊 Supervision — Azure Monitor + KQL
+## 📊 Supervision et Alerting (KQL)
+
+L'**Azure Monitor Agent (AMA)** est déployé sur chaque instance RHEL 9 pour la collecte des métriques système et des logs. Les requêtes KQL permettent une détection proactive des incidents avant qu'ils n'affectent les utilisateurs.
 
 ### Configuration du Workspace
 
 ```bash
-# Créer le Log Analytics Workspace
 az monitor log-analytics workspace create \
   --resource-group rg-finsecure-availability \
   --workspace-name law-finsecure \
-  --location francecentral \
+  --location canadacentral \
   --sku PerGB2018
 ```
 
 ### Requêtes KQL
 
-#### 🔍 Requête 1 — Disponibilité des VMs (dernières 24h)
+#### 🔍 Disponibilité des VMs RHEL 9 (Heartbeat)
 
 ```kql
 Heartbeat
@@ -321,7 +375,17 @@ Heartbeat
 | sort by LastHeartbeat desc
 ```
 
-#### 🔍 Requête 2 — Analyse CPU par VM (pic de charge)
+#### 🔍 Alerte Heartbeat manquant (VM hors ligne)
+
+```kql
+Heartbeat
+| where TimeGenerated > ago(5m)
+| summarize LastHeartbeat = max(TimeGenerated) by Computer
+| where LastHeartbeat < ago(5m)
+// Alerte déclenchée si aucune réponse depuis plus de 5 minutes
+```
+
+#### 🔍 Analyse CPU par instance RHEL 9
 
 ```kql
 Perf
@@ -333,7 +397,7 @@ Perf
 | sort by TimeGenerated desc
 ```
 
-#### 🔍 Requête 3 — Événements de scaling VMSS
+#### 🔍 Événements de scaling VMSS
 
 ```kql
 AzureActivity
@@ -344,97 +408,43 @@ AzureActivity
 | sort by TimeGenerated desc
 ```
 
-#### 🔍 Requête 4 — Mémoire disponible par VM
+### Alertes configurées
 
-```kql
-Perf
-| where TimeGenerated > ago(1h)
-| where ObjectName == "Memory" and CounterName == "Available MBytes"
-| summarize AvgMemMB = avg(CounterValue) by Computer, bin(TimeGenerated, 5m)
-| project TimeGenerated, Computer, AvgMemMB = round(AvgMemMB, 0)
-| sort by AvgMemMB asc
-```
+| Alerte | Type | Seuil | Sévérité | Action |
+|---|---|---|---|---|
+| **CPU élevé** | Métrique | CPU > 80 % / 5 min | Severity 2 — Warning | E-mail équipe infra |
+| **VM hors ligne** | Log (KQL) | Heartbeat absent > 5 min | Severity 1 — Critical | E-mail + SMS on-call |
 
-**📸 Screenshot 7 :** *Log Analytics → Query Explorer → Résultat de la requête Heartbeat*
+**📸 Screenshot 7 :** *Log Analytics → Query Explorer → Résultat Heartbeat RHEL 9*
 
 **📸 Screenshot 8 :** *Azure Monitor → Metrics → Graphe CPU des instances VMSS*
 
 ---
 
-## 🚨 Alertes configurées
+## ✅ Tests de résilience
 
-### Alert 1 — CPU élevé sur VMSS
+Pour valider la conformité ISO 27001 (A.17 — Disponibilité), les simulations suivantes ont été réalisées :
 
-| Paramètre | Valeur |
-|---|---|
-| **Nom** | alert-cpu-high-finsecure |
-| **Ressource cible** | vmss-finsecure |
-| **Métrique** | Percentage CPU |
-| **Seuil** | > 80% (moy. 5 min) |
-| **Sévérité** | Severity 2 — Warning |
-| **Action** | Email à l'équipe infra |
-
-```bash
-# Créer l'Action Group
-az monitor action-group create \
-  --resource-group rg-finsecure-availability \
-  --name ag-finsecure-infra \
-  --short-name finsec \
-  --action email infra-alert admin@finsecure.bj
-
-# Créer la règle d'alerte CPU
-az monitor metrics alert create \
-  --resource-group rg-finsecure-availability \
-  --name alert-cpu-high-finsecure \
-  --scopes /subscriptions/<SUB_ID>/resourceGroups/rg-finsecure-availability/providers/Microsoft.Compute/virtualMachineScaleSets/vmss-finsecure \
-  --condition "avg Percentage CPU > 80" \
-  --window-size 5m \
-  --evaluation-frequency 1m \
-  --severity 2 \
-  --action ag-finsecure-infra
-```
-
-### Alert 2 — VM non disponible (Heartbeat manquant)
-
-| Paramètre | Valeur |
-|---|---|
-| **Nom** | alert-vm-down-finsecure |
-| **Type** | Log Alert (KQL) |
-| **Sévérité** | Severity 1 — Critical |
-| **Requête KQL** | Heartbeat manquant > 5 min |
-| **Action** | Email + SMS équipe on-call |
-
-```kql
-Heartbeat
-| where TimeGenerated > ago(5m)
-| summarize LastHeartbeat = max(TimeGenerated) by Computer
-| where LastHeartbeat < ago(5m)
-```
-
-**📸 Screenshot 9 :** *Azure Monitor → Alerts → Liste des alertes actives et déclenchées*
-
-**📸 Screenshot 10 :** *Email de notification reçu lors du test de simulation de panne*
+| Test | Méthode | Résultat |
+|:---|:---|:---|
+| **Panne VM** | Arrêt manuel de `vm-finsecure-1` (RHEL 9) | Basculement sur `vm-finsecure-2` en < 30 secondes |
+| **Pic de charge CPU** | Stress test CPU > 80 % sur les instances RHEL 9 | Scale OUT automatique : 2 → 4 instances en 3 minutes |
+| **Retour à la normale** | Arrêt du stress, CPU < 20 % | Scale IN automatique : 4 → 2 instances en 5 minutes |
+| **Alerte CPU** | Dépassement du seuil de 80 % | E-mail reçu dans les 2 minutes |
+| **Panne de zone** | Déploiement zoné simulé | Continuité assurée par les zones restantes |
 
 ---
 
-## ✅ Résultats et métriques
+## 📈 Résultats et métriques
 
 ### SLA atteint par configuration
 
-| Configuration | SLA théorique | Scénario de panne couvert |
-|---|---|---|
-| VM seule (sans dispo) | ~99,9% | Maintenance uniquement |
-| Availability Set (2 VMs) | **99,95%** | Panne matérielle intra-rack |
-| Availability Zones (2+ zones) | **99,99%** | Panne d'un datacenter entier |
-| VMSS + Autoscale | Variable | Scaling sous charge |
-
-### Tests de résilience réalisés
-
-- ✅ **Simulation arrêt VM-1** → Load Balancer bascule sur VM-2 en < 30 secondes
-- ✅ **Test charge CPU > 80%** → VMSS scale out de 2 → 4 instances en 3 minutes
-- ✅ **Test charge CPU < 20%** → VMSS scale in de 4 → 2 instances en 5 minutes
-- ✅ **Alerte CPU** → Email reçu dans les 2 minutes suivant le dépassement du seuil
-- ✅ **Requêtes KQL** → Heartbeat et métriques visibles dans Log Analytics
+| Configuration | OS | SLA théorique | Scénario couvert |
+|---|---|---|---|
+| VM isolée | RHEL 9 | ~99,9 % | Maintenance planifiée uniquement |
+| Availability Set (2 VMs) | RHEL 9 | **99,95 %** | Défaillance matérielle intra-rack |
+| Availability Zones (2+ zones) | RHEL 9 | **99,99 %** | Panne complète d'un datacenter |
+| VMSS + Autoscale | RHEL 9 | Variable | Adaptation dynamique à la charge |
 
 ---
 
@@ -442,22 +452,23 @@ Heartbeat
 
 | # | Compétence |
 |---|---|
-| 1 | **Azure Virtual Machines** — Déploiement, configuration, haute disponibilité |
+| 1 | **Azure Virtual Machines** — Déploiement RHEL 9, configuration et haute disponibilité |
 | 2 | **Azure Load Balancer** — Distribution de charge L4, Health Probes, Backend Pools |
-| 3 | **VM Scale Sets & Autoscale** — Scaling horizontal automatique basé sur métriques |
-| 4 | **Azure Monitor & Log Analytics** — Supervision, KQL, alertes métriques et logs |
-| 5 | **Infrastructure Résilience** — Availability Sets, Zones, Fault/Update Domains |
-
----
+| 3 | **VM Scale Sets & Autoscale** — Scaling horizontal automatique sur instances RHEL 9 |
+| 4 | **Azure Monitor & Log Analytics** — AMA, KQL, alertes métriques et logs |
+| 5 | **Résilience d'infrastructure** — Availability Sets, Zones, Fault/Update Domains |
+| 6 | **Linux Administration** — RHEL 9 en environnement cloud Azure (cohérent avec RHCSA) |
+| 7 | **Gouvernance & Conformité** — Alignement ISO 27001, traçabilité, moindre privilège |
 
 ---
 
 ## 👤 Auteur
 
 **Serge TOGNON**
+*Cloud & Linux System Administrator | AZ-104 Certified | Candidat RHCSA (EX200)*
 
 ---
-> *Lab réalisé dans le cadre du développement d'un portfolio
-> cloud & Linux professionnel.
-> Certifié AZ-104 | Candidat RHCSA (EX200) en cours de préparation.
-> Environnement : Azure Pay-As-You-Go | Région : francecentral*
+
+> *Ce projet démontre ma capacité à concevoir des environnements cloud robustes, sécurisés et optimisés en coûts (FinOps), avec une maîtrise des systèmes Linux Red Hat en environnement Azure.*
+>
+> *Environnement : Azure Pay-As-You-Go | Région : canadacentral | OS : RHEL 9 (`9-lvm-gen2`)*
