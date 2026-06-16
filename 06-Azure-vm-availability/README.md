@@ -383,35 +383,94 @@ az vmss create \
 az vmss list-instances \
   --resource-group rg-finsecure-availability \
   --name vmss-finsecure-zones \
-  --query "[].{Name:name, Zone:zones[0]}" \
   --output table
 ```
 
 ### Résultat attendu
 
-| Instance | Zone | Datacenter | OS |
-|---|---|---|---|
-| `vmss-finsecure-zones_0` | Zone 1 | DC Toronto-Ouest | RHEL 9 |
-| `vmss-finsecure-zones_1` | Zone 2 | DC Toronto-Centre | RHEL 9 |
-| `vmss-finsecure-zones_2` | Zone 3 | DC Toronto-Est | RHEL 9 |
+<img width="644" height="170" alt="Zone" src="https://github.com/user-attachments/assets/dd895bcd-9717-469f-9f13-45c35bfe5d4b" />
 
-<img width="960" height="223" alt="1O" src="https://github.com/user-attachments/assets/ce330648-1b69-4c40-9ab1-47b6e1eac594" />
 
 > ✅ En cas de panne totale de la Zone 2, les Zones 1 et 3 continuent de servir le trafic sans interruption.
+>
+<img width="687" height="214" alt="Z2" src="https://github.com/user-attachments/assets/cbcbce80-0815-4de2-9296-d1c781b8bc0c" />
 
-<img width="892" height="374" alt="11" src="https://github.com/user-attachments/assets/1fbb776c-93a5-45b2-8e75-ab4435819bab" />
-
-
-<img width="899" height="389" alt="12" src="https://github.com/user-attachments/assets/994efec4-5905-44b0-bc5e-6ec1799d7c2f" />
-
+<img width="914" height="295" alt="13a" src="https://github.com/user-attachments/assets/d7418b70-6d7b-4f35-a4d3-66de6b09dc25" />
 
 ---
 
 ## 📊 Supervision et Alerting (KQL)
 
-L'**Azure Monitor Agent (AMA)** est déployé sur chaque instance RHEL 9 pour la collecte des métriques système et des logs. Les requêtes KQL permettent une détection proactive des incidents avant qu'ils n'affectent les utilisateurs.
+> **Module de supervision | Azure VM Availability Lab**
+> Détection proactive des incidents sur infrastructure RHEL 9 via Azure Monitor, Log Analytics et KQL.
 
-### Configuration du Workspace
+---
+
+## 🎯 Contexte
+
+Dans une infrastructure de services financiers comme **FinSecure SA**, détecter un incident **avant** qu'il n'impacte les utilisateurs finaux est une exigence non négociable. Cette phase met en place une couche de supervision complète reposant sur trois piliers :
+
+- **Azure Monitor Agent (AMA):**  collecte les métriques et logs sur chaque instance RHEL 9
+- **Log Analytics Workspace:** centralise et stocke toutes les données pour les rendre interrogeables
+- **KQL + Alertes:** analyse les données en temps réel et notifie l'équipe dès qu'un seuil critique est franchi
+
+L'objectif est simple : **zéro incident silencieux**. Chaque anomalie , VM qui ne répond plus, CPU qui s'emballe, scaling qui échoue , doit être détectée, tracée et signalée automatiquement, sans intervention humaine.
+
+---
+
+## 💡 Pourquoi cette approche ?
+
+Une infrastructure haute disponibilité sans supervision est une infrastructure **aveugle**. Les Availability Sets et le VMSS protègent contre les pannes, mais ils ne préviennent pas l'équipe quand quelque chose se passe mal. La surveillance vient compléter la résilience technique par une **intelligence opérationnelle**  elle transforme des données brutes (CPU, heartbeat, événements) en informations actionnables pour l'équipe on-call.
+
+---
+
+## 🏗️ Architecture de supervision
+
+```
+Instances RHEL 9 (VMSS + VMs)
+        │
+        │  métriques + logs (toutes les 60s)
+        ▼
+Azure Monitor Agent (AMA)
+        │
+        ▼
+┌─────────────────────────────────────────┐
+│   Log Analytics Workspace               │
+│   law-finsecure / canadacentral         │
+│                                         │
+│   Tables :                              │
+│   ├── Heartbeat   (disponibilité VM)    │
+│   ├── Perf        (CPU, mémoire)        │
+│   └── AzureActivity (events scaling)   │
+└──────────────┬──────────────────────────┘
+               │
+               ├──► Requêtes KQL ──► Tableaux de bord
+               │
+               └──► Règles d'alerte
+                       │
+                       ├── CPU > 80% (5min)
+                       │     └──► ✉️  Email équipe infra
+                       │
+                       └── Heartbeat absent (5min)
+                             └──► ✉️  Email + 📱 SMS on-call
+```
+
+---
+
+## 📋 Ce que surveille ce lab
+
+| Métrique surveillée | Table KQL | Seuil d'alerte | Sévérité | Réaction |
+|---|---|---|---|---|
+| **Disponibilité VM** | `Heartbeat` | Absence > 5 min | Severity 1 — Critical | SMS on-call |
+| **Charge CPU** | `Perf` | Moyenne > 80% / 5 min | Severity 2 — Warning | Email infra |
+| **Événements scaling** | `AzureActivity` | Toute opération VMSS | — | Audit / traçabilité |
+| **Mémoire disponible** | `Perf` | Analyse manuelle | — | Tableau de bord |
+
+---
+
+## 🔧 Étape 1 — Log Analytics Workspace
+
+> Le **Log Analytics Workspace** est la base de données centralisée dans laquelle tous les logs et métriques collectés par l'AMA sont stockés et interrogeables via KQL. Sans ce workspace, aucune requête n'est possible et aucune alerte ne peut être configurée ,c'est le socle de toute la chaîne de supervision. Le SKU `PerGB2018` facture uniquement selon le volume de données ingérées, ce qui est idéal pour un lab où les volumes restent faibles.
 
 ```bash
 az monitor log-analytics workspace create \
@@ -421,9 +480,87 @@ az monitor log-analytics workspace create \
   --sku PerGB2018
 ```
 
-### Requêtes KQL
+**Vérification :**
 
-#### 🔍 Disponibilité des VMs RHEL 9 (Heartbeat)
+```bash
+az monitor log-analytics workspace show \
+  --resource-group rg-finsecure-availability \
+  --workspace-name law-finsecure \
+  --query "{Nom:name, ID:customerId, Statut:provisioningState}" \
+  --output table
+```
+<img width="529" height="145" alt="13a" src="https://github.com/user-attachments/assets/4241a9b2-c375-44b3-9a47-e27d7953244a" />
+
+<img width="917" height="374" alt="13b" src="https://github.com/user-attachments/assets/243e5dcc-f637-45a5-9a37-ea1b40e59c52" />
+
+
+---
+
+## 📋 Étape 2 — Requêtes KQL
+---
+
+**Étape 1 — Installer l'Azure Monitor Agent sur les VMs**
+**Sur vm-finsecure-1**
+```bash
+az vm extension set \
+  --resource-group rg-finsecure-availability \
+  --vm-name vm-finsecure-1 \
+  --name AzureMonitorLinuxAgent \
+  --publisher Microsoft.Azure.Monitor \
+  --version 1.0 \
+  --enable-auto-upgrade true
+```
+**Sur vm-finsecure-2**
+```bash
+az vm extension set \
+  --resource-group rg-finsecure-availability \
+  --vm-name vm-finsecure-2 \
+  --name AzureMonitorLinuxAgent \
+  --publisher Microsoft.Azure.Monitor \
+  --version 1.0 \
+  --enable-auto-upgrade true
+```  
+**Étape 2 — Lier les VMs au Log Analytics Workspace**
+
+**Récupérer l'ID du workspace**
+```bash
+LAW_ID=$(az monitor log-analytics workspace show \
+  --resource-group rg-finsecure-availability \
+  --workspace-name law-finsecure \
+  --query id --output tsv)
+```
+**Lier vm-finsecure-1**
+```bash
+az monitor data-collection rule association create \
+  --name dcra-vm1-finsecure \
+  --resource /subscriptions/$(az account show --query id -o tsv)/resourceGroups/rg-finsecure-availability/providers/Microsoft.Compute/virtualMachines/vm-finsecure-1 \
+  --rule-id $LAW_ID
+```
+**Lier vm-finsecure-2**
+```bash
+az monitor data-collection rule association create \
+  --name dcra-vm2-finsecure \
+  --resource /subscriptions/$(az account show --query id -o tsv)/resourceGroups/rg-finsecure-availability/providers/Microsoft.Compute/virtualMachines/vm-finsecure-2 \
+  --rule-id $LAW_ID
+```
+ **Étape 3 — Attendre 10-15 minutes**
+ 
+L'AMA a besoin de temps pour démarrer et envoyer les premiers heartbeats au workspace.
+
+# Étape 4 — Exécuter la requête KQL dans le portail
+
+
+# Portail Azure
+→ law-finsecure
+→ Menu gauche : Logs
+→ Coller la requête KQL
+→ Cliquer Run
+
+---
+
+### 🔍 Requête 1 — Disponibilité des VMs RHEL 9 (Heartbeat)
+
+> La table **Heartbeat** enregistre un signal toutes les 60 secondes pour chaque VM supervisée par l'AMA. Cette requête récupère le **dernier heartbeat de chaque VM sur les 24 dernières heures** et détermine si elle est actuellement en ligne ou hors ligne. La logique est simple : si le dernier signal date de moins de 5 minutes → `✅ En ligne` ; au-delà → `❌ Hors ligne`. C'est la requête de **tableau de bord de santé** ,elle donne en un coup d'œil l'état de toute l'infrastructure FinSecure SA.
 
 ```kql
 Heartbeat
@@ -434,7 +571,21 @@ Heartbeat
 | sort by LastHeartbeat desc
 ```
 
-#### 🔍 Alerte Heartbeat manquant (VM hors ligne)
+**Résultat attendu :**
+
+| Computer | LastHeartbeat | IsAvailable |
+|---|---|---|
+| vm-finsecure-1 | 2025-01-15T10:45:00Z | ✅ En ligne |
+| vm-finsecure-2 | 2025-01-15T10:45:00Z | ✅ En ligne |
+| vmss-finsecure-zones_0 | 2025-01-15T10:44:00Z | ✅ En ligne |
+
+**📸 Screenshot 2 :** *Log Analytics → Query Explorer → Résultat de la requête Heartbeat*
+
+---
+
+### 🔍 Requête 2 — Alerte Heartbeat manquant (VM hors ligne)
+
+> Cette requête est conçue pour être utilisée comme **condition d'une alerte Azure Monitor**. Elle cherche uniquement les VMs dont le dernier heartbeat remonte à plus de 5 minutes — ce qui signifie qu'elles ne répondent plus. Contrairement à la Requête 1 qui donne une vue globale, celle-ci retourne un résultat **uniquement s'il y a un problème**. Si elle retourne des lignes, l'alerte se déclenche et envoie immédiatement une notification à l'équipe on-call. C'est la sentinelle silencieuse du lab — elle ne parle que quand quelque chose va mal.
 
 ```kql
 Heartbeat
@@ -444,7 +595,13 @@ Heartbeat
 // Alerte déclenchée si aucune réponse depuis plus de 5 minutes
 ```
 
-#### 🔍 Analyse CPU par instance RHEL 9
+**📸 Screenshot 3 :** *Azure Monitor → Alerte → Condition KQL Heartbeat configurée*
+
+---
+
+### 🔍 Requête 3 — Analyse CPU par instance RHEL 9
+
+> Cette requête interroge la table **Perf** qui collecte les compteurs de performance système via l'AMA. Elle filtre sur le compteur `% Processor Time`, calcule la **moyenne et le pic CPU** par VM sur des fenêtres de 5 minutes, et ne remonte que les instances dont la moyenne dépasse **70%**. C'est la requête d'**investigation de performance** — elle identifie quelle instance RHEL 9 est sous pression, depuis combien de temps, et à quel niveau de pic elle a atteint. Couplée aux règles d'autoscale, elle permet de valider que le Scale OUT s'est bien déclenché au bon moment.
 
 ```kql
 Perf
@@ -456,7 +613,13 @@ Perf
 | sort by TimeGenerated desc
 ```
 
-#### 🔍 Événements de scaling VMSS
+**📸 Screenshot 4 :** *Azure Monitor → Metrics → Graphe CPU des instances VMSS*
+
+---
+
+### 🔍 Requête 4 — Événements de scaling VMSS
+
+> La table **AzureActivity** enregistre toutes les opérations effectuées sur les ressources Azure via le plan de contrôle. Cette requête filtre les opérations d'écriture sur le VMSS sur les **7 derniers jours**, ce qui correspond exactement aux événements Scale OUT et Scale IN déclenchés par les règles d'autoscale. Elle retourne le timestamp, le type d'opération, son statut (Succeeded/Failed) et l'identité du déclencheur (autoscale engine ou action manuelle). C'est le **journal d'audit du scaling** — il prouve que l'infrastructure s'est bien adaptée automatiquement à la charge.
 
 ```kql
 AzureActivity
@@ -467,16 +630,182 @@ AzureActivity
 | sort by TimeGenerated desc
 ```
 
-### Alertes configurées
+**📸 Screenshot 5 :** *Log Analytics → AzureActivity → Événements de scaling listés*
 
-| Alerte | Type | Seuil | Sévérité | Action |
+---
+
+### 🔍 Requête 5 — Mémoire disponible par instance
+
+> Cette requête surveille la **mémoire disponible** sur chaque instance RHEL 9 via le compteur `Available MBytes`. Elle trie les résultats par ordre croissant pour identifier immédiatement les instances les plus proches de la saturation mémoire. Complémentaire à l'analyse CPU, elle offre une vision complète de la santé des instances et permet d'anticiper les problèmes de mémoire avant qu'ils n'affectent les performances applicatives.
+
+```kql
+Perf
+| where TimeGenerated > ago(1h)
+| where ObjectName == "Memory" and CounterName == "Available MBytes"
+| summarize AvgMemMB = avg(CounterValue) by Computer, bin(TimeGenerated, 5m)
+| project TimeGenerated, Computer, AvgMemMB = round(AvgMemMB, 0)
+| sort by AvgMemMB asc
+```
+
+**📸 Screenshot 6 :** *Log Analytics → Résultat requête mémoire — instances triées par mémoire disponible*
+
+---
+
+## 🔔 Étape 3 — Action Group
+
+> L'**Action Group** est le groupe de destinataires et d'actions à déclencher quand une alerte se produit. Il faut impérativement le créer **avant** les règles d'alerte car celles-ci y font référence. Un Action Group peut contenir plusieurs canaux de notification : email, SMS, webhook, Azure Function, ITSM. Ici, on configure un email vers l'équipe infra FinSecure SA.
+
+```bash
+az monitor action-group create \
+  --resource-group rg-finsecure-availability \
+  --name ag-finsecure-infra \
+  --short-name finsec \
+  --action email infra-alert admin@finsecure.bj
+```
+
+**Vérification :**
+
+```bash
+az monitor action-group show \
+  --resource-group rg-finsecure-availability \
+  --name ag-finsecure-infra \
+  --query "{Nom:name, Email:emailReceivers[0].emailAddress}" \
+  --output table
+```
+
+**📸 Screenshot 7 :** *Portail Azure → Monitor → Action Groups → ag-finsecure-infra créé*
+
+---
+
+## 🚨 Étape 4 — Alerte CPU élevé (Severity 2 — Warning)
+
+> Cette alerte surveille le **CPU moyen du VMSS** toutes les minutes sur une fenêtre de 5 minutes. Si le seuil de **80%** est dépassé de manière soutenue, l'Action Group est déclenché et un email est envoyé immédiatement à l'équipe infra. La sévérité 2 (Warning) indique une situation nécessitant attention sans être critique — l'autoscale peut encore absorber la charge, mais l'équipe doit être informée. On récupère d'abord l'ID du VMSS dynamiquement pour éviter toute erreur de saisie manuelle.
+
+```bash
+# Récupérer l'ID du VMSS dynamiquement
+VMSS_ID=$(az vmss show \
+  --resource-group rg-finsecure-availability \
+  --name vmss-finsecure-zones \
+  --query id \
+  --output tsv)
+
+# Créer l'alerte CPU
+az monitor metrics alert create \
+  --resource-group rg-finsecure-availability \
+  --name alert-cpu-high-finsecure \
+  --scopes $VMSS_ID \
+  --condition "avg Percentage CPU > 80" \
+  --window-size 5m \
+  --evaluation-frequency 1m \
+  --severity 2 \
+  --description "CPU VMSS FinSecure > 80% depuis 5 min" \
+  --action ag-finsecure-infra
+```
+
+**Paramètres de l'alerte :**
+
+| Paramètre | Valeur | Explication |
+|---|---|---|
+| `--condition` | `avg CPU > 80` | Moyenne CPU supérieure à 80% |
+| `--window-size` | `5m` | Calcul sur une fenêtre de 5 minutes |
+| `--evaluation-frequency` | `1m` | Vérification toutes les minutes |
+| `--severity` | `2` | Warning — attention requise |
+| `--action` | `ag-finsecure-infra` | Déclenche l'email à l'équipe infra |
+
+**📸 Screenshot 8 :** *Azure Monitor → Alerts → alert-cpu-high-finsecure configurée*
+
+---
+
+## 🚨 Étape 5 — Alerte VM hors ligne (Severity 1 — Critical)
+
+> Cette alerte de type **Log Alert** exécute la requête KQL Heartbeat toutes les 5 minutes. Si une VM RHEL 9 ne répond plus depuis plus de 5 minutes, l'alerte se déclenche au niveau **Severity 1 — Critical**, le plus urgent dans Azure Monitor. Elle notifie l'équipe on-call par email et SMS pour une intervention immédiate. On récupère l'ID du workspace Log Analytics dynamiquement avant de créer la règle.
+
+```bash
+# Récupérer l'ID du workspace dynamiquement
+LAW_ID=$(az monitor log-analytics workspace show \
+  --resource-group rg-finsecure-availability \
+  --workspace-name law-finsecure \
+  --query id \
+  --output tsv)
+
+# Créer l'alerte Heartbeat
+az monitor scheduled-query create \
+  --resource-group rg-finsecure-availability \
+  --name alert-vm-down-finsecure \
+  --scopes $LAW_ID \
+  --condition-query "
+    Heartbeat
+    | where TimeGenerated > ago(5m)
+    | summarize LastHeartbeat = max(TimeGenerated) by Computer
+    | where LastHeartbeat < ago(5m)" \
+  --condition-time-aggregation Count \
+  --condition-operator GreaterThan \
+  --condition-threshold 0 \
+  --evaluation-frequency 5m \
+  --window-size 5m \
+  --severity 1 \
+  --description "VM RHEL 9 FinSecure hors ligne depuis plus de 5 min" \
+  --action-groups ag-finsecure-infra
+```
+
+**Paramètres de l'alerte :**
+
+| Paramètre | Valeur | Explication |
+|---|---|---|
+| `--condition-query` | Requête KQL Heartbeat | Détecte les VMs silencieuses |
+| `--condition-threshold` | `0` | Se déclenche dès la première VM hors ligne |
+| `--evaluation-frequency` | `5m` | Vérifie toutes les 5 minutes |
+| `--severity` | `1` | Critical — intervention immédiate requise |
+| `--action-groups` | `ag-finsecure-infra` | Email + SMS on-call |
+
+**📸 Screenshot 9 :** *Azure Monitor → Alerts → alert-vm-down-finsecure configurée*
+
+**📸 Screenshot 10 :** *Email de notification reçu lors de la simulation de panne*
+
+---
+
+## ✅ Résultat final
+
+### Tableau récapitulatif des alertes
+
+| Alerte | Type | Condition | Sévérité | Action |
 |---|---|---|---|---|
-| **CPU élevé** | Métrique | CPU > 80 % / 5 min | Severity 2 — Warning | E-mail équipe infra |
-| **VM hors ligne** | Log (KQL) | Heartbeat absent > 5 min | Severity 1 — Critical | E-mail + SMS on-call |
+| `alert-cpu-high-finsecure` | Métrique | CPU > 80% / 5 min | ⚠️ Severity 2 — Warning | Email équipe infra |
+| `alert-vm-down-finsecure` | Log (KQL) | Heartbeat absent > 5 min | 🔴 Severity 1 — Critical | Email + SMS on-call |
 
-**📸 Screenshot 7 :** *Log Analytics → Query Explorer → Résultat Heartbeat RHEL 9*
+### Tableau récapitulatif des requêtes KQL
 
-**📸 Screenshot 8 :** *Azure Monitor → Metrics → Graphe CPU des instances VMSS*
+| # | Requête | Table | Usage |
+|---|---|---|---|
+| 1 | Disponibilité des VMs | `Heartbeat` | Tableau de bord de santé |
+| 2 | VM hors ligne | `Heartbeat` | Condition d'alerte Monitor |
+| 3 | Analyse CPU | `Perf` | Investigation performance |
+| 4 | Événements scaling | `AzureActivity` | Journal d'audit VMSS |
+| 5 | Mémoire disponible | `Perf` | Surveillance mémoire |
+
+### Chaîne complète de supervision
+
+```
+VM RHEL 9 silencieuse depuis > 5 min
+        │
+        ▼
+Requête KQL Heartbeat s'exécute (toutes les 5 min)
+        │
+        ▼
+Résultat > 0 lignes → Condition vraie
+        │
+        ▼
+Azure Monitor déclenche alert-vm-down-finsecure
+        │
+        ▼
+Action Group ag-finsecure-infra notifié
+        │
+        ├──► ✉️  Email → admin@finsecure.bj
+        └──► 📱 SMS → Équipe on-call
+```
+
+---
+
 
 ---
 
