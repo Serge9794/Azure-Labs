@@ -655,8 +655,9 @@ Perf
 | project TimeGenerated, Computer, AvgMemMB = round(AvgMemMB, 0)
 | sort by AvgMemMB asc
 ```
+---
 
-
+***Note** : Certains résultats de requêtes  peuvent apparaître vides en période de fonctionnement nominal. Cela confirme l'absence d'incidents de scaling ou d'interventions manuelles sur le plan de contrôle Azure.*
 
 ---
 
